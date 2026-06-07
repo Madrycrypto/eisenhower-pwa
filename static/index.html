@@ -172,6 +172,15 @@
       <form method="dialog" class="settings">
         <h3>Ustawienia</h3>
         <label>
+          Email logowania
+          <input id="authEmailInput" type="email" autocomplete="email" placeholder="twoj@email.pl">
+        </label>
+        <div class="settings-actions">
+          <button id="loginButton" type="button">Wyślij link</button>
+          <button id="logoutButton" type="button">Wyloguj</button>
+        </div>
+        <p id="authStatus" class="settings-status">Tryb lokalny.</p>
+        <label>
           Webhook n8n
           <input id="n8nWebhookInput" type="url" autocomplete="off" placeholder="https://n8n.maciejmostowski.pl/webhook/eisenhower-intake">
         </label>
@@ -191,6 +200,6 @@
     </dialog>
   </main>
 
-  <script src="./app.js" defer></script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

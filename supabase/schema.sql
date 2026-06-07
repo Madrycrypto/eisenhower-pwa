@@ -29,6 +29,7 @@ create table if not exists public.subscriptions (
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  client_id text,
   title text not null,
   zone text not null check (zone in ('do', 'plan', 'delegate', 'delete')),
   status text not null default 'planowane',
@@ -114,6 +115,7 @@ create policy "focus_sessions_select_own" on public.focus_sessions
 
 create index if not exists tasks_user_zone_idx on public.tasks(user_id, zone);
 create index if not exists tasks_user_due_idx on public.tasks(user_id, due_at);
+create unique index if not exists tasks_user_client_id_idx on public.tasks(user_id, client_id);
 create index if not exists subscriptions_user_idx on public.subscriptions(user_id);
 
 create or replace function public.handle_new_user()

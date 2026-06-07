@@ -1,3 +1,5 @@
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
 const tasksKey = "eisenhower-static-tasks";
 const configKey = "eisenhower-static-config";
 
@@ -10,6 +12,9 @@ const zoneNames = {
 
 let activeZone = "do";
 let isRecordingHint = false;
+let supabase = null;
+let currentUser = null;
+let isSyncing = false;
 
 function setStatus(text) {
   document.getElementById("status").textContent = text;
@@ -23,8 +28,9 @@ function getTasks() {
   }
 }
 
-function saveTasks(tasks) {
+function saveTasks(tasks, { sync = true } = {}) {
   localStorage.setItem(tasksKey, JSON.stringify(tasks));
+  if (sync) syncTasksToSupabase().catch((error) => setStatus(`Sync: ${error.message}`));
 }
 
 function createTask(title, zone) {
@@ -59,6 +65,121 @@ function refresh() {
   document.getElementById("visibleCount").textContent = `${visible.length} zadań`;
   renderTasks(visible);
   setStatus("Dotknij kafla, żeby zobaczyć zadania.");
+}
+
+function getSupabaseConfig() {
+  const config = loadConfig();
+  if (!config.supabaseUrl || !config.supabaseAnonKey) return null;
+  return config;
+}
+
+function getSupabase() {
+  const config = getSupabaseConfig();
+  if (!config) return null;
+  if (!supabase) {
+    supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+    });
+  }
+  return supabase;
+}
+
+function toDbTask(task) {
+  return {
+    client_id: task.id,
+    user_id: currentUser.id,
+    title: task.title,
+    zone: task.zone,
+    status: task.status || "planowane",
+    due_at: task.dueAt || null,
+    notes: task.notes || "",
+    calendar_event_id: task.calendarEventId || null,
+    postponed_count: Number(task.postponedCount || 0),
+    last_postponed_at: task.lastPostponedAt || null,
+    completed_at: task.completedAt || null,
+    source: task.source || "watch",
+    created_at: task.createdAt || new Date().toISOString(),
+    updated_at: task.updatedAt || new Date().toISOString()
+  };
+}
+
+function fromDbTask(row) {
+  return {
+    id: row.client_id || row.id,
+    dbId: row.id,
+    title: row.title,
+    zone: row.zone,
+    status: row.status || "planowane",
+    dueAt: row.due_at || "",
+    notes: row.notes || "",
+    calendarEventId: row.calendar_event_id || "",
+    postponedCount: Number(row.postponed_count || 0),
+    lastPostponedAt: row.last_postponed_at || "",
+    completedAt: row.completed_at || "",
+    source: row.source || "supabase",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mergeTasks(localTasks, remoteTasks) {
+  const merged = new Map();
+  [...localTasks, ...remoteTasks].forEach((task) => {
+    const existing = merged.get(task.id);
+    if (!existing || new Date(task.updatedAt || task.createdAt) >= new Date(existing.updatedAt || existing.createdAt)) {
+      merged.set(task.id, task);
+    }
+  });
+  return Array.from(merged.values()).sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+}
+
+async function initSupabase() {
+  const client = getSupabase();
+  if (!client) {
+    setStatus("Tryb lokalny. Ustaw Supabase w Ustawieniach.");
+    return;
+  }
+  const { data, error } = await client.auth.getSession();
+  if (error) throw error;
+  currentUser = data.session?.user || null;
+  client.auth.onAuthStateChange(async (_event, session) => {
+    currentUser = session?.user || null;
+    if (currentUser) await syncTasksFromSupabase();
+  });
+  if (currentUser) await syncTasksFromSupabase();
+  else setStatus("Supabase gotowy. Zaloguj email w Ustawieniach.");
+}
+
+async function syncTasksFromSupabase() {
+  const client = getSupabase();
+  if (!client || !currentUser || isSyncing) return;
+  isSyncing = true;
+  try {
+    const { data, error } = await client.from("tasks").select("*").order("updated_at", { ascending: false });
+    if (error) throw error;
+    const merged = mergeTasks(getTasks(), (data || []).map(fromDbTask));
+    saveTasks(merged, { sync: false });
+    refresh();
+    await syncTasksToSupabase();
+    setStatus(`Sync: ${currentUser.email || "OK"}`);
+  } finally {
+    isSyncing = false;
+  }
+}
+
+async function syncTasksToSupabase() {
+  const client = getSupabase();
+  if (!client || !currentUser || isSyncing) return;
+  const tasks = getTasks();
+  if (tasks.length === 0) return;
+  const { error } = await client.from("tasks").upsert(tasks.map(toDbTask), { onConflict: "user_id,client_id" });
+  if (error) throw error;
+}
+
+async function deleteTaskFromSupabase(task) {
+  const client = getSupabase();
+  if (!client || !currentUser) return;
+  await client.from("tasks").delete().eq("client_id", task.id);
 }
 
 function renderTasks(visible) {
@@ -99,7 +220,8 @@ function renderTasks(visible) {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = "Usuń";
-    remove.addEventListener("click", () => {
+    remove.addEventListener("click", async () => {
+      await deleteTaskFromSupabase(task).catch((error) => setStatus(`Delete: ${error.message}`));
       saveTasks(getTasks().filter((itemTask) => itemTask.id !== task.id));
       refresh();
     });
@@ -152,9 +274,22 @@ document.querySelectorAll("[data-zone]").forEach((button) => {
 document.getElementById("settingsButton").addEventListener("click", () => {
   const config = loadConfig();
   const url = prompt("Webhook n8n", config.n8nWebhookUrl || "https://n8n.maciejmostowski.pl/webhook/eisenhower-intake");
-  if (url !== null) {
-    saveConfig({ ...config, n8nWebhookUrl: url.trim() });
-    setStatus("Ustawienia zapisane.");
+  if (url === null) return;
+  const supabaseUrl = prompt("Supabase URL", config.supabaseUrl || "");
+  if (supabaseUrl === null) return;
+  const supabaseAnonKey = prompt("Supabase anon key", config.supabaseAnonKey || "");
+  if (supabaseAnonKey === null) return;
+  const email = prompt("Email logowania Supabase", config.authEmail || "");
+  saveConfig({ ...config, n8nWebhookUrl: url.trim(), supabaseUrl: supabaseUrl.trim(), supabaseAnonKey: supabaseAnonKey.trim(), authEmail: (email || "").trim() });
+  supabase = null;
+  currentUser = null;
+  if (email) {
+    const client = getSupabase();
+    client?.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: location.href.split("#")[0] } })
+      .then(({ error }) => setStatus(error ? `Login: ${error.message}` : "Link logowania wysłany."))
+      .catch((error) => setStatus(`Login: ${error.message}`));
+  } else {
+    initSupabase().catch((error) => setStatus(`Supabase: ${error.message}`));
   }
 });
 
@@ -206,3 +341,4 @@ document.getElementById("quickForm").addEventListener("submit", async (event) =>
 });
 
 refresh();
+initSupabase().catch((error) => setStatus(`Supabase: ${error.message}`));

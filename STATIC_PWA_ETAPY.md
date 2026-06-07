@@ -163,4 +163,54 @@ Schemat startowy jest tutaj:
 supabase/schema.sql
 ```
 
-W Etapie 2 localStorage zostanie jako offline cache, a Supabase będzie źródłem prawdy.
+## Etap 2: kroki Supabase
+
+1. Utwórz projekt w Supabase.
+2. Wejdź w SQL Editor.
+3. Wklej i uruchom:
+
+```text
+supabase/schema.sql
+```
+
+4. Wejdź w:
+
+```text
+Project Settings -> API
+```
+
+Skopiuj:
+
+```text
+Project URL
+anon public key
+```
+
+5. Wejdź w:
+
+```text
+Authentication -> URL Configuration
+```
+
+Dodaj do redirect URLs:
+
+```text
+https://madrycrypto.github.io/eisenhower-pwa/
+https://madrycrypto.github.io/eisenhower-pwa/index.html
+https://madrycrypto.github.io/eisenhower-pwa/watch.html
+```
+
+6. W aplikacji kliknij `MM` i wpisz:
+
+```text
+Webhook n8n
+Supabase URL
+Supabase anon key
+Email logowania
+```
+
+7. Kliknij `Zapisz`, potem `Wyślij link`.
+
+Po zalogowaniu localStorage działa jako offline cache, a Supabase synchronizuje zadania między laptopem, telefonem i widokiem watch.
+
+Ważne: `anon public key` może być w przeglądarce. Bezpieczeństwo zapewniają RLS policies z `supabase/schema.sql`.

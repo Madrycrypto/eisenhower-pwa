@@ -1,3 +1,5 @@
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
 const labels = {
   do: ["Ważne", "Pilne"],
   plan: ["Ważne", "Mało pilne"],
@@ -22,6 +24,9 @@ const zoneShortNames = {
 const tasksKey = "eisenhower-static-tasks";
 const configKey = "eisenhower-static-config";
 let tasks = [];
+let supabase = null;
+let currentUser = null;
+let isSyncing = false;
 let forcedRecordZone = "";
 let speechRecognition = null;
 let mediaRecorder = null;
@@ -43,7 +48,7 @@ function saveConfig(config) {
   localStorage.setItem(configKey, JSON.stringify(config));
 }
 
-function loadTasks() {
+async function loadTasks() {
   try {
     const saved = JSON.parse(localStorage.getItem(tasksKey) || "[]");
     tasks = Array.isArray(saved) ? saved : [];
@@ -62,10 +67,12 @@ function loadTasks() {
   }
 
   render();
+  await initSupabase();
 }
 
-function saveTasks() {
+function saveTasks({ sync = true } = {}) {
   localStorage.setItem(tasksKey, JSON.stringify(tasks));
+  if (sync) syncTasksToSupabase().catch((error) => setRecordStatus(`Sync Supabase: ${error.message}`));
 }
 
 function createTask(title, zone = "do", extras = {}) {
@@ -88,6 +95,184 @@ function createTask(title, zone = "do", extras = {}) {
 
 function normalizeZone(zone) {
   return ["do", "plan", "delegate", "delete"].includes(zone) ? zone : "do";
+}
+
+function getSupabaseConfig() {
+  const config = loadConfig();
+  if (!config.supabaseUrl || !config.supabaseAnonKey) return null;
+  return config;
+}
+
+function getSupabase() {
+  const config = getSupabaseConfig();
+  if (!config) return null;
+  if (!supabase) {
+    supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+  }
+  return supabase;
+}
+
+async function initSupabase() {
+  const client = getSupabase();
+  updateAuthStatus();
+  if (!client) return;
+
+  const { data, error } = await client.auth.getSession();
+  if (error) {
+    setRecordStatus(`Supabase auth: ${error.message}`);
+    return;
+  }
+
+  currentUser = data.session?.user || null;
+  updateAuthStatus();
+
+  client.auth.onAuthStateChange(async (_event, session) => {
+    currentUser = session?.user || null;
+    updateAuthStatus();
+    if (currentUser) await syncTasksFromSupabase();
+  });
+
+  if (currentUser) {
+    await syncTasksFromSupabase();
+  }
+}
+
+function updateAuthStatus() {
+  const status = document.getElementById("authStatus");
+  if (!status) return;
+  const config = getSupabaseConfig();
+  if (!config) {
+    status.textContent = "Tryb lokalny. Wpisz Supabase URL i anon key, aby włączyć sync.";
+  } else if (currentUser) {
+    status.textContent = `Zalogowano: ${currentUser.email || currentUser.id}`;
+  } else {
+    status.textContent = "Supabase skonfigurowany. Zaloguj się linkiem email.";
+  }
+}
+
+async function signInWithEmail() {
+  const client = getSupabase();
+  if (!client) {
+    setRecordStatus("Najpierw wpisz Supabase URL i anon key.");
+    return;
+  }
+
+  const email = document.getElementById("authEmailInput").value.trim();
+  if (!email) {
+    setRecordStatus("Wpisz email logowania.");
+    return;
+  }
+
+  const { error } = await client.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: location.href.split("#")[0]
+    }
+  });
+
+  if (error) throw error;
+  setRecordStatus("Wysłano link logowania na email.");
+}
+
+async function signOut() {
+  const client = getSupabase();
+  if (!client) return;
+  const { error } = await client.auth.signOut();
+  if (error) throw error;
+  currentUser = null;
+  updateAuthStatus();
+  setRecordStatus("Wylogowano. Zostaje lokalny cache.");
+}
+
+function toDbTask(task) {
+  return {
+    client_id: task.id,
+    user_id: currentUser.id,
+    title: task.title,
+    zone: normalizeZone(task.zone),
+    status: task.status || "planowane",
+    due_at: task.dueAt || null,
+    notes: task.notes || "",
+    calendar_event_id: task.calendarEventId || null,
+    postponed_count: Number(task.postponedCount || 0),
+    last_postponed_at: task.lastPostponedAt || null,
+    completed_at: task.completedAt || null,
+    source: task.source || "pwa-static",
+    created_at: task.createdAt || new Date().toISOString(),
+    updated_at: task.updatedAt || new Date().toISOString()
+  };
+}
+
+function fromDbTask(row) {
+  return {
+    id: row.client_id || row.id,
+    dbId: row.id,
+    title: row.title,
+    zone: normalizeZone(row.zone),
+    status: row.status || "planowane",
+    dueAt: row.due_at || "",
+    notes: row.notes || "",
+    calendarEventId: row.calendar_event_id || "",
+    postponedCount: Number(row.postponed_count || 0),
+    lastPostponedAt: row.last_postponed_at || "",
+    completedAt: row.completed_at || "",
+    source: row.source || "supabase",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+function mergeTasks(localTasks, remoteTasks) {
+  const merged = new Map();
+  [...localTasks, ...remoteTasks].forEach((task) => {
+    const existing = merged.get(task.id);
+    if (!existing || new Date(task.updatedAt || task.createdAt) >= new Date(existing.updatedAt || existing.createdAt)) {
+      merged.set(task.id, task);
+    }
+  });
+  return Array.from(merged.values()).sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+}
+
+async function syncTasksFromSupabase() {
+  const client = getSupabase();
+  if (!client || !currentUser || isSyncing) return;
+  isSyncing = true;
+  try {
+    const { data, error } = await client
+      .from("tasks")
+      .select("*")
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    tasks = mergeTasks(tasks, (data || []).map(fromDbTask));
+    saveTasks({ sync: false });
+    render();
+    await syncTasksToSupabase();
+    setRecordStatus("Synchronizacja Supabase gotowa.");
+  } finally {
+    isSyncing = false;
+  }
+}
+
+async function syncTasksToSupabase() {
+  const client = getSupabase();
+  if (!client || !currentUser || isSyncing || tasks.length === 0) return;
+  const payload = tasks.map(toDbTask);
+  const { error } = await client
+    .from("tasks")
+    .upsert(payload, { onConflict: "user_id,client_id" });
+  if (error) throw error;
+}
+
+async function deleteTaskFromSupabase(task) {
+  const client = getSupabase();
+  if (!client || !currentUser) return;
+  await client.from("tasks").delete().eq("client_id", task.id);
 }
 
 function render() {
@@ -155,7 +340,8 @@ function createCard(task) {
   const remove = document.createElement("button");
   remove.type = "button";
   remove.textContent = "Usuń";
-  remove.addEventListener("click", () => {
+  remove.addEventListener("click", async () => {
+    await deleteTaskFromSupabase(task).catch((error) => setRecordStatus(`Supabase delete: ${error.message}`));
     tasks = tasks.filter((item) => item.id !== task.id);
     saveTasks();
     render();
@@ -593,18 +779,32 @@ document.getElementById("syncCalendarButton")?.addEventListener("click", () => {
 
 document.getElementById("settingsButton").addEventListener("click", () => {
   const config = loadConfig();
+  document.getElementById("authEmailInput").value = currentUser?.email || config.authEmail || "";
   document.getElementById("n8nWebhookInput").value = config.n8nWebhookUrl || "";
   document.getElementById("supabaseUrlInput").value = config.supabaseUrl || "";
   document.getElementById("supabaseAnonInput").value = config.supabaseAnonKey || "";
+  updateAuthStatus();
   document.getElementById("settingsDialog").showModal();
+});
+
+document.getElementById("loginButton").addEventListener("click", () => {
+  signInWithEmail().catch((error) => setRecordStatus(`Login: ${error.message}`));
+});
+
+document.getElementById("logoutButton").addEventListener("click", () => {
+  signOut().catch((error) => setRecordStatus(`Logout: ${error.message}`));
 });
 
 document.getElementById("saveSettings").addEventListener("click", () => {
   saveConfig({
+    authEmail: document.getElementById("authEmailInput").value.trim(),
     n8nWebhookUrl: document.getElementById("n8nWebhookInput").value.trim(),
     supabaseUrl: document.getElementById("supabaseUrlInput").value.trim(),
     supabaseAnonKey: document.getElementById("supabaseAnonInput").value.trim()
   });
+  supabase = null;
+  currentUser = null;
+  initSupabase().catch((error) => setRecordStatus(`Supabase: ${error.message}`));
   setRecordStatus("Ustawienia zapisane lokalnie.");
 });
 
@@ -612,4 +812,4 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
 
-loadTasks();
+loadTasks().catch((error) => setRecordStatus(error.message));

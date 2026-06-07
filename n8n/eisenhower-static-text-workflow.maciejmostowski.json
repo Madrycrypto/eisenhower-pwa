@@ -1,0 +1,160 @@
+{
+  "name": "Eisenhower Static PWA - Text to Task and Calendar",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "eisenhower-intake",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-intake",
+      "name": "Webhook - Static PWA Intake",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-720, 0],
+      "webhookId": "eisenhower-intake"
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers = $json.headers || {};\nlet body = $json.body ?? $json;\nif (typeof body === 'string') {\n  try { body = JSON.parse(body); } catch { body = { text: body }; }\n}\nconst text = body.text || body.transcript || '';\nconst forcedZone = body.forcedZone || headers['x-forced-zone'] || '';\nconst timezone = body.timezone || headers['x-timezone'] || 'Europe/Warsaw';\nconst now = body.now || headers['x-now'] || new Date().toISOString();\nreturn [{ json: { text, forcedZone, timezone, now, source: body.source || 'static-pwa' } }];"
+      },
+      "id": "normalize-input",
+      "name": "Normalize Text Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/responses",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "contentType": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4.1-mini\",\n  \"input\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Jestes parserem polskich komend do macierzy Eisenhowera. Zwroc tylko JSON bez markdown. Mapuj zone: do=Do First/Zrob teraz, plan=Delay/Zaplanuj, delegate=Delegate/Deleguj, delete=Dont Do/Usun. Jesli forcedZone jest jednym z do/plan/delegate/delete, ma pierwszenstwo. Jesli wykryjesz date/godzine wydarzenia, ustaw event.create=true. Domyslne przypomnienia: 180 i 60 minut przed. Jesli uzytkownik poda inne przypomnienie, respektuj je. Uzywaj timezone z wejscia.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"now={{$json.now}} timezone={{$json.timezone}} forcedZone={{$json.forcedZone || ''}} text={{JSON.stringify($json.text)}}\\n\\nZwroc: {\\\"task\\\":{\\\"title\\\":string,\\\"zone\\\":\\\"do|plan|delegate|delete\\\",\\\"notes\\\":string,\\\"dueAt\\\":string|null},\\\"event\\\":{\\\"create\\\":boolean,\\\"summary\\\":string|null,\\\"start\\\":string|null,\\\"end\\\":string|null,\\\"location\\\":string|null,\\\"description\\\":string|null,\\\"reminders\\\":{\\\"minutesBefore\\\":number[]}}}\"\n    }\n  ],\n  \"text\": { \"format\": { \"type\": \"json_object\" } }\n}"
+      },
+      "id": "parse-command",
+      "name": "OpenAI - Parse Text Command",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-220, 0],
+      "credentials": {
+        "openAiApi": {
+          "id": "REPLACE_OPENAI_CREDENTIAL_ID",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $json.output_text || $json.text || $json.choices?.[0]?.message?.content || $json.output?.[0]?.content?.[0]?.text || '{}';\nconst parsed = typeof content === 'string' ? JSON.parse(content) : content;\nconst validZones = ['do', 'plan', 'delegate', 'delete'];\nconst task = parsed.task || {};\nif (!validZones.includes(task.zone)) task.zone = $('Normalize Text Input').item.json.forcedZone || 'do';\nif (!task.title) task.title = $('Normalize Text Input').item.json.text || 'Nowe zadanie';\nconst event = parsed.event || { create: false };\nreturn [{ json: { task, event, transcript: $('Normalize Text Input').item.json.text } }];"
+      },
+      "id": "parse-json",
+      "name": "Parse JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [20, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.event.create}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "if-calendar",
+      "name": "Create Calendar Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "calendar": "primary",
+        "start": "={{$json.event.start}}",
+        "end": "={{$json.event.end || $json.event.start}}",
+        "additionalFields": {
+          "summary": "={{$json.event.summary || $json.task.title}}",
+          "description": "={{$json.event.description || $json.task.notes || ''}}",
+          "location": "={{$json.event.location || ''}}",
+          "useDefaultReminders": false,
+          "reminders": {
+            "overrides": [
+              {
+                "method": "popup",
+                "minutes": "={{($json.event.reminders?.minutesBefore || [180,60])[0] || 180}}"
+              },
+              {
+                "method": "popup",
+                "minutes": "={{($json.event.reminders?.minutesBefore || [180,60])[1] || 60}}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "google-calendar",
+      "name": "Google Calendar - Create Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.2,
+      "position": [520, -100],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_GOOGLE_CREDENTIAL_ID",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const calendar = $('Google Calendar - Create Event').item?.json || {};\nconst original = $('Parse JSON').item.json;\nreturn [{ json: { task: { ...original.task, calendarEventId: calendar.id || '', dueAt: original.task.dueAt || original.event.start || '' }, event: original.event, calendar, transcript: original.transcript } }];"
+      },
+      "id": "response-with-calendar",
+      "name": "Response With Calendar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, -100]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { task: $json.task, event: $json.event, transcript: $json.transcript } }];"
+      },
+      "id": "response-task-only",
+      "name": "Response Task Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 120]
+    }
+  ],
+  "connections": {
+    "Webhook - Static PWA Intake": {
+      "main": [[{ "node": "Normalize Text Input", "type": "main", "index": 0 }]]
+    },
+    "Normalize Text Input": {
+      "main": [[{ "node": "OpenAI - Parse Text Command", "type": "main", "index": 0 }]]
+    },
+    "OpenAI - Parse Text Command": {
+      "main": [[{ "node": "Parse JSON", "type": "main", "index": 0 }]]
+    },
+    "Parse JSON": {
+      "main": [[{ "node": "Create Calendar Event?", "type": "main", "index": 0 }]]
+    },
+    "Create Calendar Event?": {
+      "main": [
+        [{ "node": "Google Calendar - Create Event", "type": "main", "index": 0 }],
+        [{ "node": "Response Task Only", "type": "main", "index": 0 }]
+      ]
+    },
+    "Google Calendar - Create Event": {
+      "main": [[{ "node": "Response With Calendar", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

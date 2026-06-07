@@ -258,14 +258,24 @@ function updateTask(id, changes) {
 
 function loadConfig() {
   try {
-    return { ...defaultConfig, ...JSON.parse(localStorage.getItem(configKey) || "{}") };
+    return normalizeConfig(JSON.parse(localStorage.getItem(configKey) || "{}"));
   } catch {
     return { ...defaultConfig };
   }
 }
 
+function normalizeConfig(saved = {}) {
+  return {
+    ...defaultConfig,
+    ...saved,
+    n8nWebhookUrl: saved.n8nWebhookUrl?.trim() || defaultConfig.n8nWebhookUrl,
+    supabaseUrl: saved.supabaseUrl?.trim() || defaultConfig.supabaseUrl,
+    supabaseAnonKey: saved.supabaseAnonKey?.trim() || defaultConfig.supabaseAnonKey
+  };
+}
+
 function saveConfig(config) {
-  localStorage.setItem(configKey, JSON.stringify(config));
+  localStorage.setItem(configKey, JSON.stringify(normalizeConfig(config)));
 }
 
 document.querySelectorAll("[data-zone]").forEach((button) => {

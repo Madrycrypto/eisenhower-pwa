@@ -24,6 +24,9 @@ const configKey = "eisenhower-static-config";
 let tasks = [];
 let forcedRecordZone = "";
 let speechRecognition = null;
+let mediaRecorder = null;
+let audioChunks = [];
+let recordingStream = null;
 let isRecording = false;
 let liveTranscript = "";
 let finalTranscript = "";
@@ -395,6 +398,39 @@ async function sendToN8n(url, text, forcedZone) {
   }
 }
 
+async function sendAudioToN8n(url, blob, forcedZone) {
+  const formData = new FormData();
+  formData.append("data", blob, "recording.webm");
+  formData.append("forcedZone", forcedZone || "");
+  formData.append("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
+  formData.append("now", new Date().toISOString());
+  formData.append("source", "static-pwa-audio");
+
+  const response = await fetch(url, {
+    method: "POST",
+    body: formData
+  });
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(message || "n8n nie przyjął nagrania.");
+  }
+
+  return response.json();
+}
+
+function addTaskFromParsed(parsed, fallbackText, forcedZone) {
+  const taskData = parsed?.task || parseLocalCommand(fallbackText || "Nagranie audio", forcedZone);
+  if (forcedZone) taskData.zone = forcedZone;
+  tasks.unshift(createTask(taskData.title, taskData.zone, {
+    dueAt: taskData.dueAt || "",
+    notes: taskData.notes || parsed?.transcript || "",
+    calendarEventId: taskData.calendarEventId || ""
+  }));
+  saveTasks();
+  render();
+}
+
 function parseLocalCommand(text, forcedZone) {
   const clean = text
     .replace(/^(zrób teraz|zrob teraz|zaplanuj|deleguj|usuń|usun|do first|delay|delegate|don't do|dont do)\s*[-:]?\s*/i, "")
@@ -418,39 +454,80 @@ async function toggleRecording() {
   const button = document.getElementById("recordButton");
   if (isRecording) {
     stopSpeechPreview();
+    if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
     isRecording = false;
     button.classList.remove("recording");
     button.textContent = "Nagraj";
-    const text = liveTranscript.trim();
-    if (text) {
-      document.getElementById("taskInput").value = text;
-      await intakeText(text, forcedRecordZone || document.getElementById("zoneInput").value);
-    } else {
-      setRecordStatus("Nie widzę tekstu. Spróbuj jeszcze raz albo wpisz zadanie ręcznie.");
-    }
+    setRecordStatus("Wysyłam nagranie do n8n...");
     return;
   }
 
-  if (!canRecognizeSpeech()) {
-    setRecordStatus("Ta przeglądarka nie udostępnia rozpoznawania mowy. Wpisz zadanie albo użyj Chrome/Safari z HTTPS.");
+  const config = loadConfig();
+  if (!config.n8nWebhookUrl) {
+    setRecordStatus("Najpierw wpisz webhook n8n w ustawieniach MM.");
+    return;
+  }
+
+  if (!canRecordAudio()) {
+    setRecordStatus("Mikrofon wymaga HTTPS i przeglądarki z MediaRecorder.");
+    return;
+  }
+
+  try {
+    recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (error) {
+    setRecordStatus(`Nie mam dostępu do mikrofonu: ${error.message || error.name}`);
     return;
   }
 
   liveTranscript = "";
   finalTranscript = "";
+  audioChunks = [];
   isRecording = true;
   button.classList.add("recording");
   button.textContent = "Stop";
-  startSpeechPreview();
+  startSpeechPreviewIfAvailable();
+  mediaRecorder = new MediaRecorder(recordingStream);
+  mediaRecorder.addEventListener("dataavailable", (event) => {
+    if (event.data.size > 0) audioChunks.push(event.data);
+  });
+  mediaRecorder.addEventListener("stop", async () => {
+    recordingStream?.getTracks().forEach((track) => track.stop());
+    recordingStream = null;
+    try {
+      const forcedZone = forcedRecordZone || document.getElementById("zoneInput").value;
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      const parsed = await sendAudioToN8n(config.n8nWebhookUrl, blob, forcedZone);
+      const transcript = parsed?.transcript || liveTranscript || "";
+      if (transcript) document.getElementById("taskInput").value = transcript;
+      addTaskFromParsed(parsed, transcript, forcedZone);
+      setRecordStatus(transcript ? `Dodane z nagrania: ${transcript}` : "Dodane z nagrania.");
+    } catch (error) {
+      const text = liveTranscript.trim();
+      if (text) {
+        document.getElementById("taskInput").value = text;
+        await intakeText(text, forcedRecordZone || document.getElementById("zoneInput").value);
+      } else {
+        setRecordStatus(`Nie udało się wysłać audio: ${error.message}`);
+      }
+    }
+  });
+  mediaRecorder.start();
   setRecordStatus(forcedRecordZone ? `Nagrywam do: ${zoneNames[forcedRecordZone]}. Mów teraz...` : "Nagrywam. Mów teraz...");
 }
 
-function canRecognizeSpeech() {
-  return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+function canRecordAudio() {
+  return Boolean(
+    window.isSecureContext
+    && navigator.mediaDevices
+    && typeof navigator.mediaDevices.getUserMedia === "function"
+    && typeof window.MediaRecorder === "function"
+  );
 }
 
-function startSpeechPreview() {
+function startSpeechPreviewIfAvailable() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
   speechRecognition = new SpeechRecognition();
   speechRecognition.lang = "pl-PL";
   speechRecognition.interimResults = true;

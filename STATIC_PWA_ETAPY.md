@@ -95,7 +95,24 @@ https://n8n.maciejmostowski.pl/webhook/eisenhower-intake
 
 Od tego momentu dyktowanie tekstowe będzie próbowało wysłać komendę do n8n.
 
-Jeśli n8n nie odpowie albo CORS zablokuje odczyt odpowiedzi, aplikacja i tak zapisze zadanie lokalnie.
+Jeśli chcesz prawdziwą transkrypcję audio, w n8n użyj pełnego workflow:
+
+```text
+n8n/eisenhower-intake-workflow.maciejmostowski.json
+```
+
+Ścieżka audio musi działać tak:
+
+```text
+Webhook -> Normalize Input -> Audio?
+true  -> OpenAI - Transcribe Audio -> Audio Text -> OpenAI - Parse Command
+false -> Typed Text -> OpenAI - Parse Command
+```
+
+Node `OpenAI - Transcribe Audio` uruchamiaj tylko wtedy, gdy wejście ma `hasBinary=true`.
+Jeśli wejście ma sam tekst (`hasBinary=false`), transkrypcja audio zwróci błąd typu `you must provide a model parameter` albo błąd braku pliku/modelu, bo nie ma pliku audio do wysłania.
+
+Jeśli n8n nie odpowie albo CORS zablokuje odczyt odpowiedzi, aplikacja spróbuje użyć lokalnego podglądu tekstu, jeśli przeglądarka go poda.
 
 ## Test laptop
 
@@ -147,4 +164,3 @@ supabase/schema.sql
 ```
 
 W Etapie 2 localStorage zostanie jako offline cache, a Supabase będzie źródłem prawdy.
-

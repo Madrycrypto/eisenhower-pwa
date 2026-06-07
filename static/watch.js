@@ -2,6 +2,11 @@ import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 const tasksKey = "eisenhower-static-tasks";
 const configKey = "eisenhower-static-config";
+const defaultConfig = {
+  n8nWebhookUrl: "https://n8n.maciejmostowski.pl/webhook/eisenhower-intake",
+  supabaseUrl: "https://sjepixyhdbvdxkggwppr.supabase.co",
+  supabaseAnonKey: "sb_publishable_HLnCI6TdBL3H9Q4r6orpGQ_dUNS4VcG"
+};
 
 const zoneNames = {
   do: "Zrób teraz",
@@ -253,9 +258,9 @@ function updateTask(id, changes) {
 
 function loadConfig() {
   try {
-    return JSON.parse(localStorage.getItem(configKey) || "{}");
+    return { ...defaultConfig, ...JSON.parse(localStorage.getItem(configKey) || "{}") };
   } catch {
-    return {};
+    return { ...defaultConfig };
   }
 }
 

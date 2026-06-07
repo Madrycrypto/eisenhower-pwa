@@ -9,6 +9,7 @@ const zoneNames = {
 };
 
 let activeZone = "do";
+let isRecordingHint = false;
 
 function setStatus(text) {
   document.getElementById("status").textContent = text;
@@ -157,12 +158,23 @@ document.getElementById("settingsButton").addEventListener("click", () => {
   }
 });
 
+document.getElementById("recordButton").addEventListener("click", () => {
+  const button = document.getElementById("recordButton");
+  const input = document.getElementById("taskInput");
+  isRecordingHint = !isRecordingHint;
+  button.classList.toggle("recording", isRecordingHint);
+  input.focus();
+  setStatus(isRecordingHint ? "Dyktuj w polu tekstowym, potem kliknij Dodaj." : "Dyktowanie zatrzymane.");
+});
+
 document.getElementById("quickForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = document.getElementById("taskInput");
   const title = input.value.trim();
   const zone = document.getElementById("zoneInput").value;
   if (!title) return;
+  isRecordingHint = false;
+  document.getElementById("recordButton").classList.remove("recording");
 
   const tasks = getTasks();
   tasks.unshift(createTask(title, zone));

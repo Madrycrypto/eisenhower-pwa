@@ -139,6 +139,46 @@
       gap: 8px;
     }
 
+    .quick-row {
+      display: grid;
+      grid-template-columns: 46px 1fr;
+      gap: 8px;
+    }
+
+    .record {
+      width: 46px;
+      min-height: 42px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #ffbf5d, #ff735e);
+      border-color: rgba(255, 255, 255, 0.62);
+      box-shadow: 0 8px 14px rgba(255, 118, 93, 0.18);
+    }
+
+    .record::before {
+      content: "";
+      width: 16px;
+      height: 20px;
+      display: block;
+      background: currentColor;
+      -webkit-mask:
+        radial-gradient(circle at 50% 31%, #000 0 5px, transparent 5.5px),
+        linear-gradient(#000 0 0) 50% 15px / 9px 2px no-repeat,
+        linear-gradient(#000 0 0) 50% 16px / 2px 7px no-repeat,
+        linear-gradient(#000 0 0) 50% 100% / 11px 2px no-repeat;
+      mask:
+        radial-gradient(circle at 50% 31%, #000 0 5px, transparent 5.5px),
+        linear-gradient(#000 0 0) 50% 15px / 9px 2px no-repeat,
+        linear-gradient(#000 0 0) 50% 16px / 2px 7px no-repeat,
+        linear-gradient(#000 0 0) 50% 100% / 11px 2px no-repeat;
+    }
+
+    .record.recording {
+      background: #ef4d3b;
+      color: white;
+    }
+
     .list-head {
       display: flex;
       justify-content: space-between;
@@ -214,7 +254,10 @@
     </section>
 
     <form id="quickForm">
-      <input id="taskInput" autocomplete="off" placeholder="Krótka notatka">
+      <div class="quick-row">
+        <button class="record" id="recordButton" type="button" aria-label="Dyktuj zadanie"></button>
+        <input id="taskInput" autocomplete="off" placeholder="Krótka notatka">
+      </div>
       <select id="zoneInput">
         <option value="do">Zrób teraz</option>
         <option value="plan">Zaplanuj</option>

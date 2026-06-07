@@ -1,0 +1,12 @@
+{
+  "name": "eisenhower-pwa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Eisenhower matrix PWA with n8n voice intake and Google Calendar automation.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

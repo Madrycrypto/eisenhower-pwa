@@ -1,0 +1,16 @@
+{
+  "name": "Macierz Eisenhowera",
+  "short_name": "Eisenhower",
+  "start_url": "/v2.html",
+  "display": "standalone",
+  "background_color": "#fff5ed",
+  "theme_color": "#fff5ed",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

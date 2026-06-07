@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#121212">
+  <title>Macierz Eisenhowera</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <h1>Macierz Eisenhowera</h1>
+        <p class="sub">Online, telefon, pulpit i szybkie dyktowanie.</p>
+      </div>
+      <form class="quick-add" id="taskForm">
+        <input id="taskInput" autocomplete="off" placeholder="Dodaj zadanie albo komendę...">
+        <select id="zoneInput" aria-label="Kwadrant">
+          <option value="do">Zrób teraz</option>
+          <option value="plan">Zaplanuj</option>
+          <option value="delegate">Deleguj</option>
+          <option value="delete">Usuń</option>
+        </select>
+        <button type="submit">Dodaj</button>
+      </form>
+    </header>
+
+    <section class="matrix" aria-label="Macierz Eisenhowera">
+      <div class="corner"></div>
+      <div class="axis-top">
+        <div class="axis-label">Pilne</div>
+        <div class="axis-label">Mało pilne</div>
+      </div>
+      <div class="axis-left">
+        <div class="axis-label vertical">Ważne</div>
+        <div class="axis-label vertical">Mało ważne</div>
+      </div>
+
+      <section class="quadrant" data-zone="do">
+        <div class="quad-head">
+          <h2>Zrób teraz</h2>
+          <span class="count"></span>
+        </div>
+        <div class="cards" data-list="do"></div>
+      </section>
+
+      <section class="quadrant" data-zone="plan">
+        <div class="quad-head">
+          <h2>Zaplanuj</h2>
+          <span class="count"></span>
+        </div>
+        <div class="cards" data-list="plan"></div>
+      </section>
+
+      <section class="quadrant" data-zone="delegate">
+        <div class="quad-head">
+          <h2>Deleguj</h2>
+          <span class="count"></span>
+        </div>
+        <div class="cards" data-list="delegate"></div>
+      </section>
+
+      <section class="quadrant" data-zone="delete">
+        <div class="quad-head">
+          <h2>Usuń</h2>
+          <span class="count"></span>
+        </div>
+        <div class="cards" data-list="delete"></div>
+      </section>
+    </section>
+  </main>
+
+  <aside class="recorder" aria-label="Dyktowanie">
+    <button id="recordButton" class="record-button" type="button">Nagraj</button>
+    <div>
+      <strong id="recordTitle">Szybkie dyktowanie</strong>
+      <p id="recordStatus">Powiedz np. „Zrób teraz spotkanie z Kasią jutro o 14”.</p>
+    </div>
+  </aside>
+
+  <dialog id="settingsDialog">
+    <form method="dialog" class="settings">
+      <h3>Ustawienia</h3>
+      <label>
+        Token aplikacji
+        <input id="tokenInput" type="password" autocomplete="off" placeholder="APP_TOKEN z VPS">
+      </label>
+      <menu>
+        <button value="cancel">Zamknij</button>
+        <button id="saveSettings" value="default">Zapisz</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <button id="settingsButton" class="settings-button" type="button" aria-label="Ustawienia">⚙</button>
+  <script src="/app.js" defer></script>
+</body>
+</html>

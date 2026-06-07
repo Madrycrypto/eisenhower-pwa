@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fff5ed">
+  <title>Eisenhower Watch</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f2d9ce;
+      --surface: #fff8ef;
+      --text: #292420;
+      --muted: #8f7e72;
+      --line: rgba(83, 52, 38, 0.12);
+      --coral: #ff765d;
+      --teal: #86dcd3;
+      --lime: #cfe985;
+      --yellow: #ffd178;
+      --shadow: 0 12px 26px rgba(117, 76, 54, 0.16);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.44), transparent 34%),
+        linear-gradient(135deg, #efd1c4, #f7e6dc 52%, #f1d8cc);
+      color: var(--text);
+    }
+
+    main {
+      width: min(100vw - 18px, 380px);
+      margin: 0 auto;
+      padding: max(10px, env(safe-area-inset-top)) 0 max(10px, env(safe-area-inset-bottom));
+      display: grid;
+      gap: 10px;
+    }
+
+    .watch-card {
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      border-radius: 22px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(18px, 6.4vw, 28px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+    }
+
+    button,
+    input,
+    select {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--text);
+      font: inherit;
+      padding: 0 10px;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .record {
+      min-height: 58px;
+      background: linear-gradient(135deg, #ffbf5d, #ff735e);
+      border-color: rgba(255, 255, 255, 0.62);
+      color: var(--text);
+      font-size: 18px;
+      box-shadow: 0 10px 18px rgba(255, 118, 93, 0.22);
+    }
+
+    .record.recording {
+      background: #ef4d3b;
+      color: white;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .tile {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      min-height: 74px;
+      display: grid;
+      align-content: center;
+      gap: 4px;
+    }
+
+    .tile strong {
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .tile span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.15;
+    }
+
+    .do {
+      background: linear-gradient(135deg, #ff765d, #f4b6ab);
+    }
+
+    .plan {
+      background: linear-gradient(135deg, #7ed9d1, #d8f3df);
+    }
+
+    .delegate {
+      background: linear-gradient(135deg, #b8df69, #f3e9bf);
+    }
+
+    .delete {
+      background: linear-gradient(135deg, #ffc45d, #ffe5bd);
+    }
+
+    form {
+      display: grid;
+      gap: 8px;
+    }
+
+    .small {
+      min-height: 36px;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="watch-card">
+    <header>
+      <h1>Manage Your Work</h1>
+      <p class="status" id="status">Ładuję...</p>
+    </header>
+
+    <button class="record" id="recordButton" type="button">Nagraj</button>
+
+    <section class="grid" aria-label="Liczniki zadań">
+      <div class="tile do"><strong id="countDo">0</strong><span>Zrób teraz</span></div>
+      <div class="tile plan"><strong id="countPlan">0</strong><span>Zaplanuj</span></div>
+      <div class="tile delegate"><strong id="countDelegate">0</strong><span>Deleguj</span></div>
+      <div class="tile delete"><strong id="countDelete">0</strong><span>Usuń</span></div>
+    </section>
+
+    <form id="quickForm">
+      <input id="taskInput" autocomplete="off" placeholder="Krótka notatka">
+      <select id="zoneInput">
+        <option value="do">Zrób teraz</option>
+        <option value="plan">Zaplanuj</option>
+        <option value="delegate">Deleguj</option>
+        <option value="delete">Usuń</option>
+      </select>
+      <button class="small" type="submit">Dodaj</button>
+    </form>
+
+    <button class="small" id="tokenButton" type="button">Token</button>
+    </section>
+  </main>
+
+  <script src="/watch.js"></script>
+</body>
+</html>

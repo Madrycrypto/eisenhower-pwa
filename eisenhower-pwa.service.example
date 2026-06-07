@@ -1,0 +1,14 @@
+[Unit]
+Description=Eisenhower PWA
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/eisenhower-pwa
+EnvironmentFile=/opt/eisenhower-pwa/.env
+ExecStart=/usr/bin/node /opt/eisenhower-pwa/server.js
+Restart=always
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

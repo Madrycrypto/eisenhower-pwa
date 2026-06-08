@@ -602,6 +602,7 @@ async function sendToN8n(url, text, forcedZone) {
 async function sendAudioToN8n(url, blob, forcedZone) {
   const formData = new FormData();
   formData.append("data", blob, "recording.webm");
+  formData.append("file", blob, "recording.webm");
   formData.append("forcedZone", forcedZone || "");
   formData.append("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
   formData.append("now", new Date().toISOString());

@@ -707,7 +707,7 @@ async function toggleRecording() {
       const text = liveTranscript.trim();
       if (text) {
         document.getElementById("taskInput").value = text;
-        await intakeText(text, forcedRecordZone || document.getElementById("zoneInput").value);
+        setRecordStatus(`Audio nie przeszło do n8n: ${error.message}. Tekst zostawiłem w polu, ale nie dodałem zadania.`);
       } else {
         setRecordStatus(`Nie udało się wysłać audio: ${error.message}`);
       }

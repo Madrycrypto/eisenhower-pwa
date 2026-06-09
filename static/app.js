@@ -91,16 +91,6 @@ async function loadTasks() {
     tasks = [];
   }
 
-  if (tasks.length === 0) {
-    tasks = [
-      createTask("Zrób teraz - przykład", "do"),
-      createTask("Zaplanuj - przykład", "plan"),
-      createTask("Deleguj - przykład", "delegate"),
-      createTask("Usuń - przykład", "delete")
-    ];
-    saveTasks();
-  }
-
   render();
   await initSupabase();
 }
@@ -297,6 +287,38 @@ async function signOut() {
   currentUser = null;
   updateAuthStatus();
   setRecordStatus("Wylogowano. Zostaje lokalny cache.");
+}
+
+async function resetProfileData() {
+  const confirmed = window.confirm("Usunąć wszystkie lokalne zadania, statystyki focus i aktywny timer? Tej akcji nie da się cofnąć.");
+  if (!confirmed) return;
+
+  pausePomodoro();
+
+  const client = getSupabase();
+  if (client && currentUser) {
+    const { error } = await client.from("tasks").delete().eq("user_id", currentUser.id);
+    if (error) throw error;
+  }
+
+  tasks = [];
+  activeFocusTaskId = "";
+  completedPomodoroFocusCount = 0;
+  pomodoroMode = "focus";
+  pomodoroRemaining = getPomodoroDurationSeconds("focus");
+  selectedCalendarDate = startOfDay(new Date());
+
+  [
+    tasksKey,
+    focusSessionsKey,
+    activeFocusTaskKey,
+    pomodoroCycleKey,
+    "eisenhower-tasks-v2",
+    "eisenhower-focus-sessions-v1"
+  ].forEach((key) => localStorage.removeItem(key));
+
+  render();
+  setRecordStatus("Zadania i statystyki zostały wyczyszczone.");
 }
 
 function toDbTask(task) {
@@ -1235,6 +1257,10 @@ document.getElementById("loginButton")?.addEventListener("click", () => {
 
 document.getElementById("logoutButton")?.addEventListener("click", () => {
   signOut().catch((error) => setRecordStatus(`Logout: ${error.message}`));
+});
+
+document.getElementById("resetProfileButton")?.addEventListener("click", () => {
+  resetProfileData().catch((error) => setRecordStatus(`Reset: ${error.message}`));
 });
 
 document.getElementById("saveSettings").addEventListener("click", () => {

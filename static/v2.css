@@ -792,6 +792,29 @@ dialog {
   font-weight: 900;
 }
 
+.settings-danger {
+  border: 1px solid rgba(239, 77, 59, 0.24);
+  border-radius: 14px;
+  margin: 0;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.settings-danger legend {
+  padding: 0 6px;
+  color: #9c463a;
+  font-weight: 900;
+}
+
+.settings-danger button {
+  min-height: 40px;
+  padding: 0 12px;
+  background: #ffe7df;
+  color: #7b2f26;
+  font-weight: 900;
+}
+
 .settings-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

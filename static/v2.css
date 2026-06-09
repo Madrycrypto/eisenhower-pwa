@@ -45,20 +45,20 @@ button {
 
 .app-shell {
   min-height: 100vh;
-  padding: 28px;
+  padding: 18px;
   display: grid;
-  grid-template-columns: 88px minmax(320px, 1120px);
+  grid-template-columns: 68px minmax(320px, 1180px);
   justify-content: center;
-  gap: 22px;
+  gap: 16px;
 }
 
 .rail {
   align-self: center;
-  min-height: min(720px, calc(100vh - 56px));
-  border: 1px dashed rgba(130, 92, 70, 0.22);
-  border-radius: 22px;
+  min-height: min(680px, calc(100vh - 36px));
+  border: 1px dashed rgba(130, 92, 70, 0.18);
+  border-radius: 18px;
   background: rgba(255, 247, 240, 0.64);
-  padding: 14px 10px;
+  padding: 10px 8px;
   display: grid;
   gap: 10px;
   align-content: center;
@@ -66,8 +66,8 @@ button {
 }
 
 .rail-link {
-  min-height: 92px;
-  border-radius: 16px;
+  min-height: 72px;
+  border-radius: 14px;
   color: var(--ink);
   text-decoration: none;
   writing-mode: vertical-rl;
@@ -75,7 +75,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 
@@ -84,16 +84,43 @@ button {
 }
 
 .phone-canvas {
-  min-height: min(820px, calc(100vh - 56px));
+  min-height: min(760px, calc(100vh - 36px));
   border: 1px solid rgba(255, 255, 255, 0.72);
-  border-radius: 34px;
+  border-radius: 26px;
   background: var(--surface);
   box-shadow: var(--shadow);
-  padding: 26px;
+  padding: 18px;
   display: grid;
   grid-template-rows: auto auto auto auto 1fr auto;
-  gap: 18px;
+  gap: 12px;
   overflow: hidden;
+}
+
+@media (min-width: 1100px) {
+  .phone-canvas {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-rows: auto auto auto auto 1fr auto auto;
+    align-items: start;
+  }
+
+  .topbar,
+  .recorder,
+  .quick-add,
+  .matrix,
+  .tracker-panel,
+  .insights-panel {
+    grid-column: 1 / -1;
+  }
+
+  .hero-panel {
+    grid-column: 1;
+    height: 100%;
+  }
+
+  .calendar-widget {
+    grid-column: 2;
+    height: 100%;
+  }
 }
 
 .topbar {
@@ -104,23 +131,23 @@ button {
 }
 
 .eyebrow {
-  margin: 0 0 4px;
+  margin: 0 0 2px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 h1 {
   margin: 0;
   max-width: 680px;
-  font-size: clamp(34px, 6vw, 64px);
-  line-height: 0.98;
+  font-size: clamp(30px, 4.4vw, 48px);
+  line-height: 1;
   letter-spacing: 0;
 }
 
 .avatar-button {
-  width: 46px;
-  height: 46px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: #fff;
   color: var(--ink);
@@ -129,14 +156,14 @@ h1 {
 }
 
 .hero-panel {
-  border-radius: 26px;
+  border-radius: 20px;
   background: linear-gradient(135deg, #fff2df, #ffd7c7);
-  min-height: 172px;
-  padding: 22px;
+  min-height: 118px;
+  padding: 16px 18px;
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 18px;
+  gap: 14px;
 }
 
 .hero-copy {
@@ -147,36 +174,36 @@ h1 {
 .kicker {
   margin: 0;
   color: #b35e4e;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
 .hero-copy strong {
-  font-size: clamp(28px, 5vw, 48px);
+  font-size: clamp(24px, 3.8vw, 36px);
   line-height: 1;
 }
 
 .hero-copy span {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .timer-card {
-  width: 168px;
-  min-height: 156px;
-  border-radius: 28px;
+  width: 128px;
+  min-height: 118px;
+  border-radius: 22px;
   background: rgba(255, 255, 255, 0.55);
   display: grid;
   place-items: center;
-  gap: 6px;
-  padding: 10px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.64), 0 14px 26px rgba(159, 82, 62, 0.16);
+  gap: 4px;
+  padding: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.64), 0 10px 20px rgba(159, 82, 62, 0.13);
 }
 
 .timer-face {
-  width: 112px;
-  height: 112px;
+  width: 78px;
+  height: 78px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.52);
   display: grid;
@@ -186,15 +213,15 @@ h1 {
 
 .timer-face strong {
   position: absolute;
-  inset: auto 0 20px;
+  inset: auto 0 13px;
   text-align: center;
-  font-size: 18px;
+  font-size: 14px;
   line-height: 1;
 }
 
 .tomato {
-  width: 84px;
-  height: 84px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   background: conic-gradient(from 24deg, #e7493a var(--timer-progress, 0%), rgba(231, 73, 58, 0.16) var(--timer-progress, 0%) 100%);
   display: grid;
@@ -202,8 +229,8 @@ h1 {
 }
 
 .tomato span {
-  width: 48px;
-  height: 48px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: #fff4e9;
 }
@@ -211,7 +238,7 @@ h1 {
 .timer-card small {
   margin-top: -2px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
 }
 
@@ -222,11 +249,11 @@ h1 {
 }
 
 .timer-actions button {
-  min-height: 28px;
-  padding: 0 10px;
+  min-height: 24px;
+  padding: 0 8px;
   background: rgba(255, 255, 255, 0.68);
   color: var(--ink);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 900;
 }
 
@@ -236,11 +263,11 @@ h1 {
 }
 
 .calendar-widget {
-  border-radius: 22px;
+  border-radius: 18px;
   background: #fff;
-  padding: 14px;
+  padding: 10px;
   display: grid;
-  gap: 12px;
+  gap: 9px;
   overflow: visible;
   box-shadow: 0 8px 18px rgba(78, 48, 32, 0.08);
 }
@@ -255,19 +282,19 @@ h1 {
 .calendar-head span {
   color: var(--muted);
   display: block;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 850;
 }
 
 .calendar-head strong {
   display: block;
   margin-top: 2px;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .calendar-head button {
-  min-height: 36px;
-  padding: 0 13px;
+  min-height: 30px;
+  padding: 0 11px;
   background: linear-gradient(135deg, #7ed9d1, #d8f3df);
   color: #174c47;
   font-weight: 900;
@@ -276,33 +303,33 @@ h1 {
 .date-strip {
   display: grid;
   grid-template-columns: repeat(7, minmax(38px, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
 .date-pill {
-  min-height: 58px;
+  min-height: 45px;
   background: #ecf6d8;
   color: #385226;
   font-weight: 900;
   display: grid;
   place-items: center;
   gap: 1px;
-  padding: 7px 4px;
+  padding: 5px 4px;
 }
 
 .date-pill .weekday {
-  font-size: 11px;
+  font-size: 10px;
   color: rgba(56, 82, 38, 0.68);
 }
 
 .date-pill .day {
-  font-size: 21px;
+  font-size: 17px;
   line-height: 1;
 }
 
 .date-pill .events {
-  min-height: 15px;
-  font-size: 10px;
+  min-height: 11px;
+  font-size: 9px;
   color: rgba(56, 82, 38, 0.72);
 }
 
@@ -314,10 +341,10 @@ h1 {
 .calendar-popover {
   display: block;
   border: 2px solid rgba(126, 217, 209, 0.9);
-  border-radius: 18px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #fff8ef, #effbf8);
-  padding: 14px;
-  box-shadow: 0 14px 30px rgba(78, 48, 32, 0.14);
+  padding: 10px 12px;
+  box-shadow: 0 10px 22px rgba(78, 48, 32, 0.1);
 }
 
 .calendar-popover[hidden] {
@@ -329,7 +356,7 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 10px;
+  margin-bottom: 7px;
 }
 
 .calendar-popover header span {
@@ -341,7 +368,7 @@ h1 {
 }
 
 .calendar-popover strong {
-  font-size: 17px;
+  font-size: 14px;
 }
 
 .calendar-popover a {
@@ -352,16 +379,16 @@ h1 {
 
 .calendar-popover ul {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .calendar-popover li {
-  border-radius: 14px;
+  border-radius: 11px;
   background: #fff;
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .calendar-event-time {
@@ -378,18 +405,18 @@ h1 {
 
 .quick-add {
   display: grid;
-  grid-template-columns: 1fr 180px 110px;
-  gap: 10px;
+  grid-template-columns: 1fr 150px 94px;
+  gap: 8px;
 }
 
 .quick-add input,
 .quick-add select,
 .quick-add button {
-  min-height: 52px;
-  padding: 0 14px;
+  min-height: 42px;
+  padding: 0 12px;
   background: #fff;
   color: var(--ink);
-  box-shadow: 0 8px 18px rgba(78, 48, 32, 0.09);
+  box-shadow: 0 6px 14px rgba(78, 48, 32, 0.07);
 }
 
 .quick-add button {
@@ -401,17 +428,17 @@ h1 {
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(180px, 1fr);
-  gap: 14px;
+  grid-auto-rows: minmax(150px, 1fr);
+  gap: 10px;
 }
 
 .quadrant {
-  border-radius: 24px;
-  padding: 18px;
+  border-radius: 18px;
+  padding: 12px;
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 12px;
-  box-shadow: 0 14px 24px rgba(78, 48, 32, 0.12);
+  gap: 9px;
+  box-shadow: 0 10px 18px rgba(78, 48, 32, 0.1);
   overflow: hidden;
 }
 
@@ -440,7 +467,7 @@ h1 {
   display: flex;
   justify-content: space-between;
   align-items: start;
-  gap: 12px;
+  gap: 8px;
 }
 
 .quad-tools {
@@ -450,9 +477,9 @@ h1 {
 }
 
 .zone-record {
-  width: 34px;
-  height: 34px;
-  min-height: 34px;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
   display: grid;
   place-items: center;
   border-radius: 999px;
@@ -463,8 +490,8 @@ h1 {
 
 .zone-record::before {
   content: "";
-  width: 15px;
-  height: 18px;
+  width: 13px;
+  height: 16px;
   display: block;
   background: currentColor;
   -webkit-mask:
@@ -481,20 +508,20 @@ h1 {
 
 h2 {
   margin: 0;
-  font-size: clamp(25px, 4vw, 40px);
+  font-size: clamp(22px, 3.2vw, 32px);
   line-height: 1;
   letter-spacing: 0;
 }
 
 .quad-head p {
-  margin: 8px 0 0;
-  font-size: 13px;
+  margin: 5px 0 0;
+  font-size: 11px;
   font-weight: 750;
 }
 
 .count {
-  min-width: 34px;
-  height: 34px;
+  min-width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.5);
   display: grid;
@@ -503,21 +530,21 @@ h2 {
 }
 
 .cards {
-  min-height: 70px;
+  min-height: 54px;
   overflow: auto;
   display: grid;
   align-content: start;
-  gap: 9px;
+  gap: 7px;
   padding-right: 2px;
 }
 
 .card {
-  border-radius: 14px;
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.62);
-  padding: 10px;
+  padding: 8px;
   display: grid;
-  gap: 8px;
-  box-shadow: 0 8px 16px rgba(78, 48, 32, 0.1);
+  gap: 6px;
+  box-shadow: 0 6px 12px rgba(78, 48, 32, 0.08);
   cursor: grab;
 }
 
@@ -533,6 +560,7 @@ h2 {
 .card-title {
   font-weight: 900;
   line-height: 1.2;
+  font-size: 14px;
   overflow-wrap: anywhere;
 }
 
@@ -540,7 +568,7 @@ h2 {
 .card-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .card-more {
@@ -548,13 +576,13 @@ h2 {
 }
 
 .card-more summary {
-  min-height: 28px;
+  min-height: 24px;
   width: fit-content;
-  border-radius: 9px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.64);
   color: var(--ink);
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 5px 8px;
+  font-size: 11px;
   font-weight: 850;
   cursor: pointer;
   list-style-position: inside;
@@ -562,8 +590,8 @@ h2 {
 
 .card-more-panel {
   display: grid;
-  gap: 6px;
-  padding-top: 8px;
+  gap: 5px;
+  padding-top: 6px;
 }
 
 .move-buttons {
@@ -587,17 +615,17 @@ h2 {
 .tag {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.62);
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 3px 7px;
+  font-size: 11px;
   font-weight: 850;
 }
 
 .card-actions button {
-  min-height: 28px;
-  padding: 0 9px;
+  min-height: 24px;
+  padding: 0 8px;
   background: rgba(255, 255, 255, 0.64);
   color: var(--ink);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
 }
 
@@ -734,20 +762,20 @@ h2 {
 .recorder {
   position: static;
   width: 100%;
-  border-radius: 18px;
+  border-radius: 14px;
   background: rgba(255, 249, 242, 0.92);
   border: 1px solid rgba(255, 255, 255, 0.82);
-  box-shadow: var(--shadow);
-  padding: 12px;
+  box-shadow: 0 8px 18px rgba(78, 48, 32, 0.08);
+  padding: 9px 10px;
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
 }
 
 .record-button {
-  width: 86px;
-  min-height: 54px;
+  width: 68px;
+  min-height: 42px;
   background: linear-gradient(135deg, #ff765d, #ffbd5e);
   color: var(--ink);
   font-weight: 950;
@@ -760,12 +788,13 @@ h2 {
 
 .recorder strong {
   display: block;
+  font-size: 14px;
 }
 
 .recorder p {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 dialog {

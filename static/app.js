@@ -713,7 +713,8 @@ function parseLocalCommand(text, forcedZone) {
 }
 
 function inferZone(text) {
-  if (/zaplanuj|delay|jutro|dzisiaj|spotkanie|wizyta|termin|o \d{1,2}/i.test(text)) return "plan";
+  if (/zrób teraz|zrob teraz|do first|dzisiaj|dziś|dzis|teraz|natychmiast|asap|pilne/i.test(text)) return "do";
+  if (/zaplanuj|delay|jutro|pojutrze|za kilka dni|przyszły|przyszly|spotkanie|wizyta|termin|o \d{1,2}/i.test(text)) return "plan";
   if (/deleguj|delegate|przekaż|przekaz/i.test(text)) return "delegate";
   if (/usuń|usun|don't do|dont do|kasuj|wyrzuć|wyrzuc/i.test(text)) return "delete";
   return "do";
@@ -764,7 +765,7 @@ async function toggleRecording() {
     recordingStream?.getTracks().forEach((track) => track.stop());
     recordingStream = null;
     try {
-      const forcedZone = forcedRecordZone || document.getElementById("zoneInput").value;
+      const forcedZone = forcedRecordZone || "";
       const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
       const parsed = await sendAudioToN8n(config.n8nWebhookUrl, blob, forcedZone);
       const transcript = parsed?.transcript || liveTranscript || "";

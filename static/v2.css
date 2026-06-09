@@ -241,6 +241,7 @@ h1 {
   padding: 14px;
   display: grid;
   gap: 12px;
+  overflow: visible;
   box-shadow: 0 8px 18px rgba(78, 48, 32, 0.08);
 }
 
@@ -311,11 +312,12 @@ h1 {
 }
 
 .calendar-popover {
-  border: 1px solid rgba(78, 48, 32, 0.1);
+  display: block;
+  border: 2px solid rgba(126, 217, 209, 0.9);
   border-radius: 18px;
-  background: #fff8ef;
+  background: linear-gradient(135deg, #fff8ef, #effbf8);
   padding: 14px;
-  box-shadow: 0 12px 26px rgba(78, 48, 32, 0.12);
+  box-shadow: 0 14px 30px rgba(78, 48, 32, 0.14);
 }
 
 .calendar-popover[hidden] {
@@ -328,6 +330,14 @@ h1 {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 10px;
+}
+
+.calendar-popover header span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 .calendar-popover strong {

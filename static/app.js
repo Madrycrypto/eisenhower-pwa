@@ -48,6 +48,7 @@ let pomodoroRunning = false;
 let pomodoroInterval = null;
 let tickSoundEnabled = localStorage.getItem(tickSoundKey) === "true";
 let tickAudioContext = null;
+let selectedCalendarDate = startOfDay(new Date());
 
 function loadConfig() {
   try {
@@ -577,7 +578,6 @@ function formatDue(value) {
 function renderDateStrip() {
   const strip = document.getElementById("dateStrip");
   const month = document.getElementById("calendarMonth");
-  const popover = document.getElementById("calendarPopover");
   if (!strip) return;
 
   const today = startOfDay(new Date());
@@ -592,7 +592,7 @@ function renderDateStrip() {
     const count = tasks.filter((task) => isSameDay(task.dueAt, date)).length;
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `date-pill${index === 0 ? " selected" : ""}`;
+    button.className = `date-pill${isSameCalendarDate(selectedCalendarDate, date) ? " selected" : ""}`;
     button.dataset.date = date.toISOString();
     button.innerHTML = `
       <span class="weekday">${weekdayFormatter.format(date)}</span>
@@ -600,18 +600,19 @@ function renderDateStrip() {
       <span class="events">${formatEventCount(count)}</span>
     `;
     button.addEventListener("click", () => {
+      selectedCalendarDate = startOfDay(date);
       strip.querySelectorAll(".date-pill").forEach((pill) => pill.classList.remove("selected"));
       button.classList.add("selected");
-      renderCalendarPopover(date);
+      renderCalendarPopover(selectedCalendarDate);
     });
     strip.appendChild(button);
   }
 
-  if (popover) renderCalendarPopover(today);
+  renderCalendarPopover(selectedCalendarDate);
 }
 
 function renderCalendarPopover(date) {
-  const popover = document.getElementById("calendarPopover");
+  const popover = ensureCalendarPopover();
   if (!popover) return;
 
   const dayTasks = tasks
@@ -631,12 +632,33 @@ function renderCalendarPopover(date) {
 
   popover.innerHTML = `
     <header>
-      <strong>${title}</strong>
+      <div>
+        <span>Szczegóły dnia</span>
+        <strong>${title}</strong>
+      </div>
       <a href="${calendarUrl}" target="_blank" rel="noopener">Otwórz Google</a>
     </header>
     ${items}
   `;
-  popover.hidden = false;
+  popover.removeAttribute("hidden");
+}
+
+function ensureCalendarPopover() {
+  const existing = document.getElementById("calendarPopover");
+  if (existing) return existing;
+  const strip = document.getElementById("dateStrip");
+  if (!strip) return null;
+  const popover = document.createElement("div");
+  popover.id = "calendarPopover";
+  popover.className = "calendar-popover";
+  strip.insertAdjacentElement("afterend", popover);
+  return popover;
+}
+
+function isSameCalendarDate(first, second) {
+  return first.getFullYear() === second.getFullYear()
+    && first.getMonth() === second.getMonth()
+    && first.getDate() === second.getDate();
 }
 
 function formatEventCount(count) {

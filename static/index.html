@@ -200,6 +200,25 @@
           Supabase anon key
           <input id="supabaseAnonInput" type="password" autocomplete="off" placeholder="Etap 2">
         </label>
+        <fieldset class="settings-group">
+          <legend>Pomodoro</legend>
+          <label>
+            Praca (min)
+            <input id="pomodoroFocusInput" type="number" min="1" max="120" step="1" inputmode="numeric">
+          </label>
+          <label>
+            Krótka przerwa (min)
+            <input id="pomodoroShortBreakInput" type="number" min="1" max="60" step="1" inputmode="numeric">
+          </label>
+          <label>
+            Długa przerwa (min)
+            <input id="pomodoroLongBreakInput" type="number" min="1" max="120" step="1" inputmode="numeric">
+          </label>
+          <label>
+            Długa przerwa po ilu focusach
+            <input id="pomodoroLongEveryInput" type="number" min="1" max="12" step="1" inputmode="numeric">
+          </label>
+        </fieldset>
         <menu>
           <button value="cancel">Zamknij</button>
           <button id="saveSettings" value="default">Zapisz</button>

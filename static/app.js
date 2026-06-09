@@ -26,7 +26,14 @@ const configKey = "eisenhower-static-config";
 const focusSessionsKey = "eisenhower-focus-sessions";
 const tickSoundKey = "eisenhower-tick-sound";
 const activeFocusTaskKey = "eisenhower-active-focus-task";
-const pomodoroDurationSeconds = 25 * 60;
+const pomodoroSettingsKey = "eisenhower-pomodoro-settings";
+const pomodoroCycleKey = "eisenhower-pomodoro-cycle-count";
+const defaultPomodoroSettings = {
+  focusMinutes: 25,
+  shortBreakMinutes: 5,
+  longBreakMinutes: 20,
+  longBreakEvery: 3
+};
 const defaultConfig = {
   n8nWebhookUrl: "https://n8n.maciejmostowski.pl/webhook/eisenhower-intake",
   supabaseUrl: "https://sjepixyhdbvdxkggwppr.supabase.co",
@@ -44,13 +51,15 @@ let recordingStream = null;
 let isRecording = false;
 let liveTranscript = "";
 let finalTranscript = "";
-let pomodoroRemaining = pomodoroDurationSeconds;
+let pomodoroMode = "focus";
+let pomodoroRemaining = getPomodoroDurationSeconds("focus");
 let pomodoroRunning = false;
 let pomodoroInterval = null;
 let tickSoundEnabled = localStorage.getItem(tickSoundKey) === "true";
 let tickAudioContext = null;
 let selectedCalendarDate = startOfDay(new Date());
 let activeFocusTaskId = localStorage.getItem(activeFocusTaskKey) || "";
+let completedPomodoroFocusCount = Number(localStorage.getItem(pomodoroCycleKey) || 0);
 
 function loadConfig() {
   try {
@@ -99,6 +108,46 @@ async function loadTasks() {
 function saveTasks({ sync = true } = {}) {
   localStorage.setItem(tasksKey, JSON.stringify(tasks));
   if (sync) syncTasksToSupabase().catch((error) => setRecordStatus(`Sync Supabase: ${error.message}`));
+}
+
+function loadPomodoroSettings() {
+  try {
+    return normalizePomodoroSettings(JSON.parse(localStorage.getItem(pomodoroSettingsKey) || "{}"));
+  } catch {
+    return { ...defaultPomodoroSettings };
+  }
+}
+
+function normalizePomodoroSettings(settings = {}) {
+  return {
+    focusMinutes: clampNumber(settings.focusMinutes, 1, 120, defaultPomodoroSettings.focusMinutes),
+    shortBreakMinutes: clampNumber(settings.shortBreakMinutes, 1, 60, defaultPomodoroSettings.shortBreakMinutes),
+    longBreakMinutes: clampNumber(settings.longBreakMinutes, 1, 120, defaultPomodoroSettings.longBreakMinutes),
+    longBreakEvery: clampNumber(settings.longBreakEvery, 1, 12, defaultPomodoroSettings.longBreakEvery)
+  };
+}
+
+function savePomodoroSettings(settings) {
+  localStorage.setItem(pomodoroSettingsKey, JSON.stringify(normalizePomodoroSettings(settings)));
+}
+
+function clampNumber(value, min, max, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(parsed)));
+}
+
+function getPomodoroDurationSeconds(mode = pomodoroMode) {
+  const settings = loadPomodoroSettings();
+  if (mode === "shortBreak") return settings.shortBreakMinutes * 60;
+  if (mode === "longBreak") return settings.longBreakMinutes * 60;
+  return settings.focusMinutes * 60;
+}
+
+function getPomodoroModeLabel(mode = pomodoroMode) {
+  if (mode === "shortBreak") return "Przerwa";
+  if (mode === "longBreak") return "Długa przerwa";
+  return "Focus";
 }
 
 function loadFocusSessions() {
@@ -368,7 +417,8 @@ function renderPomodoro() {
 
   const minutes = Math.floor(pomodoroRemaining / 60);
   const seconds = pomodoroRemaining % 60;
-  const elapsedPercent = Math.round(((pomodoroDurationSeconds - pomodoroRemaining) / pomodoroDurationSeconds) * 100);
+  const durationSeconds = getPomodoroDurationSeconds();
+  const elapsedPercent = Math.round(((durationSeconds - pomodoroRemaining) / durationSeconds) * 100);
   const todayMinutes = getTodayFocusMinutes();
   let focusTask = getActiveFocusTask();
   if (activeFocusTaskId && !focusTask) {
@@ -380,14 +430,15 @@ function renderPomodoro() {
   toggle.setAttribute("aria-label", pomodoroRunning ? "Pauza focus timer" : "Start focus timer");
   toggle.title = pomodoroRunning ? "Pauza" : "Start";
   ring.style.setProperty("--timer-progress", `${Math.max(3, elapsedPercent)}%`);
-  stats.textContent = `${todayMinutes} min dziś`;
+  stats.textContent = `${getPomodoroModeLabel()} · ${todayMinutes} min dziś`;
   if (soundToggle) {
     soundToggle.setAttribute("aria-pressed", String(tickSoundEnabled));
     soundToggle.textContent = tickSoundEnabled ? "Tyk ON" : "Dźwięk";
   }
-  if (focusTitle) focusTitle.textContent = focusTask?.title || "Zrób teraz";
+  if (focusTitle) focusTitle.textContent = pomodoroMode === "focus" ? (focusTask?.title || "Zrób teraz") : getPomodoroModeLabel();
   if (focusMeta) {
-    if (focusTask) focusMeta.textContent = `Pomodoro dla zadania · ${todayMinutes} min dziś`;
+    if (pomodoroMode !== "focus") focusMeta.textContent = pomodoroMode === "longBreak" ? "Regeneracja po serii Pomodoro" : "Krótka przerwa przed następną sesją";
+    else if (focusTask) focusMeta.textContent = `Pomodoro dla zadania · ${todayMinutes} min dziś`;
     else focusMeta.textContent = todayMinutes ? `${todayMinutes} min skupienia dzisiaj` : "Najważniejsze zadania dnia";
   }
 }
@@ -402,7 +453,7 @@ function togglePomodoro() {
 
 function startPomodoro() {
   if (pomodoroRunning) return;
-  if (!getActiveFocusTask()) {
+  if (pomodoroMode === "focus" && !getActiveFocusTask()) {
     const firstDoTask = tasks.find((task) => task.zone === "do" && task.status !== "zrobione");
     if (firstDoTask) selectFocusTask(firstDoTask.id, { autostart: false });
   }
@@ -429,25 +480,35 @@ function pausePomodoro() {
 
 function resetPomodoro() {
   pausePomodoro();
-  pomodoroRemaining = pomodoroDurationSeconds;
+  pomodoroRemaining = getPomodoroDurationSeconds();
   renderPomodoro();
 }
 
 function completePomodoro() {
   pausePomodoro();
-  const focusTask = getActiveFocusTask();
-  saveFocusSession(25);
-  if (focusTask) {
-    updateTask(focusTask.id, {
-      focusSessions: Number(focusTask.focusSessions || 0) + 1,
-      focusMinutes: Number(focusTask.focusMinutes || 0) + 25,
-      lastFocusedAt: new Date().toISOString()
-    });
+  if (pomodoroMode !== "focus") {
+    pomodoroMode = "focus";
+    pomodoroRemaining = getPomodoroDurationSeconds("focus");
+    render();
+    playFinishTone();
+    setRecordStatus("Przerwa zakończona. Gotowe na kolejne Pomodoro.");
+    return;
   }
-  pomodoroRemaining = pomodoroDurationSeconds;
+
+  const settings = loadPomodoroSettings();
+  const focusTask = getActiveFocusTask();
+  saveFocusSession(settings.focusMinutes);
+  if (focusTask) {
+    incrementTaskFocus(focusTask.id, settings.focusMinutes);
+  }
+  completedPomodoroFocusCount += 1;
+  localStorage.setItem(pomodoroCycleKey, String(completedPomodoroFocusCount));
+  const nextIsLongBreak = completedPomodoroFocusCount % settings.longBreakEvery === 0;
+  pomodoroMode = nextIsLongBreak ? "longBreak" : "shortBreak";
+  pomodoroRemaining = getPomodoroDurationSeconds(pomodoroMode);
   render();
   playFinishTone();
-  setRecordStatus(focusTask ? `Focus zakończony dla: ${focusTask.title}` : "Focus zakończony: zapisane 25 minut skupienia.");
+  setRecordStatus(nextIsLongBreak ? `Focus zakończony. Czas na ${settings.longBreakMinutes} min długiej przerwy.` : `Focus zakończony. Czas na ${settings.shortBreakMinutes} min przerwy.`);
 }
 
 function selectFocusTask(taskId, options = {}) {
@@ -458,6 +519,21 @@ function selectFocusTask(taskId, options = {}) {
   render();
   setRecordStatus(`Wybrane do focus: ${task.title}`);
   if (options.autostart !== false && !pomodoroRunning) startPomodoro();
+}
+
+function incrementTaskFocus(taskId, minutes) {
+  tasks = tasks.map((task) => (
+    task.id === taskId
+      ? {
+        ...task,
+        focusSessions: Number(task.focusSessions || 0) + 1,
+        focusMinutes: Number(task.focusMinutes || 0) + minutes,
+        lastFocusedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+      : task
+  ));
+  saveTasks();
 }
 
 async function toggleTickSound() {
@@ -1115,11 +1191,16 @@ document.getElementById("syncCalendarButton")?.addEventListener("click", () => {
 
 document.getElementById("settingsButton").addEventListener("click", () => {
   const config = loadConfig();
+  const pomodoroSettings = loadPomodoroSettings();
   const authEmailInput = document.getElementById("authEmailInput");
   if (authEmailInput) authEmailInput.value = currentUser?.email || config.authEmail || "";
   document.getElementById("n8nWebhookInput").value = config.n8nWebhookUrl || "";
   document.getElementById("supabaseUrlInput").value = config.supabaseUrl || "";
   document.getElementById("supabaseAnonInput").value = config.supabaseAnonKey || "";
+  document.getElementById("pomodoroFocusInput").value = pomodoroSettings.focusMinutes;
+  document.getElementById("pomodoroShortBreakInput").value = pomodoroSettings.shortBreakMinutes;
+  document.getElementById("pomodoroLongBreakInput").value = pomodoroSettings.longBreakMinutes;
+  document.getElementById("pomodoroLongEveryInput").value = pomodoroSettings.longBreakEvery;
   updateAuthStatus();
   document.getElementById("settingsDialog").showModal();
 });
@@ -1139,9 +1220,17 @@ document.getElementById("saveSettings").addEventListener("click", () => {
     supabaseUrl: document.getElementById("supabaseUrlInput").value.trim(),
     supabaseAnonKey: document.getElementById("supabaseAnonInput").value.trim()
   });
+  savePomodoroSettings({
+    focusMinutes: document.getElementById("pomodoroFocusInput").value,
+    shortBreakMinutes: document.getElementById("pomodoroShortBreakInput").value,
+    longBreakMinutes: document.getElementById("pomodoroLongBreakInput").value,
+    longBreakEvery: document.getElementById("pomodoroLongEveryInput").value
+  });
+  if (!pomodoroRunning) pomodoroRemaining = getPomodoroDurationSeconds();
   supabase = null;
   currentUser = null;
   initSupabase().catch((error) => setRecordStatus(`Supabase: ${error.message}`));
+  renderPomodoro();
   setRecordStatus("Ustawienia zapisane lokalnie.");
 });
 

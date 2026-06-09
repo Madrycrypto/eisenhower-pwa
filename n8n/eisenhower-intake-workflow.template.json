@@ -22,7 +22,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const headers = $json.headers || {};\nconst body = $json.body || $json;\nconst hasBinary = Object.keys($binary || {}).length > 0;\nconst forcedZone = body.forcedZone || headers['x-forced-zone'] || '';\nreturn [{ json: { hasBinary, text: body.text || '', forcedZone, timezone: body.timezone || headers['x-timezone'] || 'Europe/Warsaw', now: body.now || headers['x-now'] || new Date().toISOString() }, binary: $binary }];"
+        "jsCode": "const headers = $json.headers || {};\nconst body = $json.body || $json;\nconst incomingBinary = $binary || {};\nconst binaryKeys = Object.keys(incomingBinary);\nconst audioKey = incomingBinary.data ? 'data' : incomingBinary.file ? 'file' : binaryKeys[0] || '';\nconst hasBinary = Boolean(audioKey);\nconst normalizedBinary = hasBinary ? { data: incomingBinary[audioKey] } : {};\nconst forcedZone = body.forcedZone || headers['x-forced-zone'] || '';\nreturn [{\n  json: {\n    hasBinary,\n    audioKey,\n    text: body.text || '',\n    forcedZone,\n    timezone: body.timezone || headers['x-timezone'] || 'Europe/Warsaw',\n    now: body.now || headers['x-now'] || new Date().toISOString()\n  },\n  binary: normalizedBinary\n}];"
       },
       "id": "normalize-input",
       "name": "Normalize Input",
@@ -147,7 +147,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const content = $json.output_text || $json.text || $json.choices?.[0]?.message?.content || $json.output?.[0]?.content?.[0]?.text || '{}';\nconst parsed = typeof content === 'string' ? JSON.parse(content) : content;\nconst validZones = ['do', 'plan', 'delegate', 'delete'];\nconst task = parsed.task || {};\nif (!validZones.includes(task.zone)) task.zone = 'do';\nif (!task.title) task.title = $('Normalize Input').item.json.text || 'Nowe zadanie';\nconst event = parsed.event || { create: false };\nreturn [{ json: { task, event, transcript: $('Normalize Input').item.json.text } }];"
+        "jsCode": "const content = $json.output_text || $json.text || $json.choices?.[0]?.message?.content || $json.output?.[0]?.content?.[0]?.text || '{}';\nconst parsed = typeof content === 'string' ? JSON.parse(content) : content;\nconst validZones = ['do', 'plan', 'delegate', 'delete'];\nconst task = parsed.task || {};\nif (!validZones.includes(task.zone)) task.zone = 'do';\nlet transcript = '';\ntry { transcript = $('Audio Text').item.json.text || ''; } catch (error) {}\nif (!transcript) {\n  try { transcript = $('Typed Text').item.json.text || ''; } catch (error) {}\n}\nif (!transcript) transcript = $('Normalize Input').item.json.text || '';\nif (!task.title) task.title = transcript || 'Nowe zadanie';\nconst event = parsed.event || { create: false };\nreturn [{ json: { task, event, transcript } }];"
       },
       "id": "parse-json",
       "name": "Parse JSON",

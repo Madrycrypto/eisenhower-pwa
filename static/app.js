@@ -25,6 +25,7 @@ const tasksKey = "eisenhower-static-tasks";
 const configKey = "eisenhower-static-config";
 const focusSessionsKey = "eisenhower-focus-sessions";
 const tickSoundKey = "eisenhower-tick-sound";
+const activeFocusTaskKey = "eisenhower-active-focus-task";
 const pomodoroDurationSeconds = 25 * 60;
 const defaultConfig = {
   n8nWebhookUrl: "https://n8n.maciejmostowski.pl/webhook/eisenhower-intake",
@@ -49,6 +50,7 @@ let pomodoroInterval = null;
 let tickSoundEnabled = localStorage.getItem(tickSoundKey) === "true";
 let tickAudioContext = null;
 let selectedCalendarDate = startOfDay(new Date());
+let activeFocusTaskId = localStorage.getItem(activeFocusTaskKey) || "";
 
 function loadConfig() {
   try {
@@ -108,10 +110,13 @@ function loadFocusSessions() {
 }
 
 function saveFocusSession(durationMinutes = 25) {
+  const task = getActiveFocusTask();
   const sessions = loadFocusSessions();
   sessions.push({
     id: `focus_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`,
     durationMinutes,
+    taskId: task?.id || "",
+    taskTitle: task?.title || "",
     completedAt: new Date().toISOString()
   });
   localStorage.setItem(focusSessionsKey, JSON.stringify(sessions.slice(-250)));
@@ -121,6 +126,10 @@ function getTodayFocusMinutes() {
   return loadFocusSessions()
     .filter((session) => isSameDay(session.completedAt, new Date()))
     .reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
+}
+
+function getActiveFocusTask() {
+  return tasks.find((task) => task.id === activeFocusTaskId) || null;
 }
 
 function createTask(title, zone = "do", extras = {}) {
@@ -133,6 +142,9 @@ function createTask(title, zone = "do", extras = {}) {
     dueAt: extras.dueAt || "",
     notes: extras.notes || "",
     calendarEventId: extras.calendarEventId || "",
+    focusSessions: Number(extras.focusSessions || 0),
+    focusMinutes: Number(extras.focusMinutes || 0),
+    lastFocusedAt: extras.lastFocusedAt || "",
     postponedCount: Number(extras.postponedCount || 0),
     lastPostponedAt: extras.lastPostponedAt || "",
     completedAt: extras.completedAt || "",
@@ -350,6 +362,7 @@ function renderPomodoro() {
   const ring = document.getElementById("timerRing");
   const stats = document.getElementById("timerStats");
   const soundToggle = document.getElementById("timerSoundToggle");
+  const focusTitle = document.getElementById("focusTitle");
   const focusMeta = document.getElementById("focusMeta");
   if (!display || !toggle || !ring || !stats) return;
 
@@ -357,6 +370,11 @@ function renderPomodoro() {
   const seconds = pomodoroRemaining % 60;
   const elapsedPercent = Math.round(((pomodoroDurationSeconds - pomodoroRemaining) / pomodoroDurationSeconds) * 100);
   const todayMinutes = getTodayFocusMinutes();
+  let focusTask = getActiveFocusTask();
+  if (activeFocusTaskId && !focusTask) {
+    activeFocusTaskId = "";
+    localStorage.removeItem(activeFocusTaskKey);
+  }
 
   display.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   toggle.setAttribute("aria-label", pomodoroRunning ? "Pauza focus timer" : "Start focus timer");
@@ -367,7 +385,11 @@ function renderPomodoro() {
     soundToggle.setAttribute("aria-pressed", String(tickSoundEnabled));
     soundToggle.textContent = tickSoundEnabled ? "Tyk ON" : "Dźwięk";
   }
-  if (focusMeta) focusMeta.textContent = todayMinutes ? `${todayMinutes} min skupienia dzisiaj` : "Najważniejsze zadania dnia";
+  if (focusTitle) focusTitle.textContent = focusTask?.title || "Zrób teraz";
+  if (focusMeta) {
+    if (focusTask) focusMeta.textContent = `Pomodoro dla zadania · ${todayMinutes} min dziś`;
+    else focusMeta.textContent = todayMinutes ? `${todayMinutes} min skupienia dzisiaj` : "Najważniejsze zadania dnia";
+  }
 }
 
 function togglePomodoro() {
@@ -380,6 +402,10 @@ function togglePomodoro() {
 
 function startPomodoro() {
   if (pomodoroRunning) return;
+  if (!getActiveFocusTask()) {
+    const firstDoTask = tasks.find((task) => task.zone === "do" && task.status !== "zrobione");
+    if (firstDoTask) selectFocusTask(firstDoTask.id, { autostart: false });
+  }
   pomodoroRunning = true;
   playTick({ soft: true });
   renderPomodoro();
@@ -409,11 +435,29 @@ function resetPomodoro() {
 
 function completePomodoro() {
   pausePomodoro();
+  const focusTask = getActiveFocusTask();
   saveFocusSession(25);
+  if (focusTask) {
+    updateTask(focusTask.id, {
+      focusSessions: Number(focusTask.focusSessions || 0) + 1,
+      focusMinutes: Number(focusTask.focusMinutes || 0) + 25,
+      lastFocusedAt: new Date().toISOString()
+    });
+  }
   pomodoroRemaining = pomodoroDurationSeconds;
   render();
   playFinishTone();
-  setRecordStatus("Focus zakończony: zapisane 25 minut skupienia.");
+  setRecordStatus(focusTask ? `Focus zakończony dla: ${focusTask.title}` : "Focus zakończony: zapisane 25 minut skupienia.");
+}
+
+function selectFocusTask(taskId, options = {}) {
+  const task = tasks.find((item) => item.id === taskId);
+  if (!task) return;
+  activeFocusTaskId = task.id;
+  localStorage.setItem(activeFocusTaskKey, activeFocusTaskId);
+  render();
+  setRecordStatus(`Wybrane do focus: ${task.title}`);
+  if (options.autostart !== false && !pomodoroRunning) startPomodoro();
 }
 
 async function toggleTickSound() {
@@ -481,7 +525,7 @@ function playFinishTone() {
 
 function createCard(task) {
   const card = document.createElement("article");
-  card.className = "card";
+  card.className = `card${task.id === activeFocusTaskId ? " focus-active" : ""}`;
   card.draggable = true;
   card.dataset.id = task.id;
 
@@ -494,9 +538,17 @@ function createCard(task) {
   labels[task.zone].forEach((label) => meta.appendChild(tag(label)));
   if (task.status) meta.appendChild(tag(task.status));
   if (task.dueAt) meta.appendChild(tag(formatDue(task.dueAt)));
+  if (task.focusMinutes) meta.appendChild(tag(`Focus ${task.focusMinutes} min`));
 
   const actions = document.createElement("div");
   actions.className = "card-actions";
+
+  const focus = document.createElement("button");
+  focus.type = "button";
+  focus.className = "focus-button";
+  focus.textContent = task.id === activeFocusTaskId ? "W focus" : "Focus";
+  focus.setAttribute("aria-pressed", String(task.id === activeFocusTaskId));
+  focus.addEventListener("click", () => selectFocusTask(task.id));
 
   const moveButtons = document.createElement("div");
   moveButtons.className = "move-buttons";
@@ -527,11 +579,15 @@ function createCard(task) {
   remove.addEventListener("click", async () => {
     await deleteTaskFromSupabase(task).catch((error) => setRecordStatus(`Supabase delete: ${error.message}`));
     tasks = tasks.filter((item) => item.id !== task.id);
+    if (activeFocusTaskId === task.id) {
+      activeFocusTaskId = "";
+      localStorage.removeItem(activeFocusTaskKey);
+    }
     saveTasks();
     render();
   });
 
-  actions.append(moveButtons, done);
+  actions.append(focus, moveButtons, done);
 
   if (task.zone !== "plan") {
     const postpone = document.createElement("button");

@@ -990,8 +990,9 @@ async function sendToN8n(url, text, forcedZone) {
 
 async function sendAudioToN8n(url, blob, forcedZone) {
   const formData = new FormData();
-  formData.append("data", blob, "recording.webm");
-  formData.append("file", blob, "recording.webm");
+  const filename = getAudioFilename(blob.type);
+  formData.append("data", blob, filename);
+  formData.append("file", blob, filename);
   formData.append("forcedZone", forcedZone || "");
   formData.append("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
   formData.append("now", new Date().toISOString());
@@ -1008,6 +1009,26 @@ async function sendAudioToN8n(url, blob, forcedZone) {
   }
 
   return response.json();
+}
+
+function getPreferredAudioMimeType() {
+  if (!window.MediaRecorder || typeof window.MediaRecorder.isTypeSupported !== "function") return "";
+  return [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4;codecs=mp4a.40.2",
+    "audio/mp4",
+    "audio/mpeg"
+  ].find((type) => window.MediaRecorder.isTypeSupported(type)) || "";
+}
+
+function getAudioFilename(mimeType = "") {
+  const type = mimeType.toLowerCase();
+  if (type.includes("webm")) return "recording.webm";
+  if (type.includes("mp4") || type.includes("m4a")) return "recording.m4a";
+  if (type.includes("mpeg") || type.includes("mp3")) return "recording.mp3";
+  if (type.includes("wav")) return "recording.wav";
+  return "recording.webm";
 }
 
 function addTaskFromParsed(parsed, fallbackText, forcedZone) {
@@ -1079,7 +1100,10 @@ async function toggleRecording() {
   button.classList.add("recording");
   button.textContent = "Stop";
   startSpeechPreviewIfAvailable();
-  mediaRecorder = new MediaRecorder(recordingStream);
+  const preferredMimeType = getPreferredAudioMimeType();
+  mediaRecorder = preferredMimeType
+    ? new MediaRecorder(recordingStream, { mimeType: preferredMimeType })
+    : new MediaRecorder(recordingStream);
   mediaRecorder.addEventListener("dataavailable", (event) => {
     if (event.data.size > 0) audioChunks.push(event.data);
   });
@@ -1088,7 +1112,7 @@ async function toggleRecording() {
     recordingStream = null;
     try {
       const forcedZone = forcedRecordZone || "";
-      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || preferredMimeType || "audio/webm" });
       const parsed = await sendAudioToN8n(config.n8nWebhookUrl, blob, forcedZone);
       const transcript = parsed?.transcript || liveTranscript || "";
       if (transcript) document.getElementById("taskInput").value = transcript;

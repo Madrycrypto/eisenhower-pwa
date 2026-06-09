@@ -23,6 +23,8 @@ const zoneShortNames = {
 
 const tasksKey = "eisenhower-static-tasks";
 const configKey = "eisenhower-static-config";
+const focusSessionsKey = "eisenhower-focus-sessions";
+const pomodoroDurationSeconds = 25 * 60;
 const defaultConfig = {
   n8nWebhookUrl: "https://n8n.maciejmostowski.pl/webhook/eisenhower-intake",
   supabaseUrl: "https://sjepixyhdbvdxkggwppr.supabase.co",
@@ -40,6 +42,9 @@ let recordingStream = null;
 let isRecording = false;
 let liveTranscript = "";
 let finalTranscript = "";
+let pomodoroRemaining = pomodoroDurationSeconds;
+let pomodoroRunning = false;
+let pomodoroInterval = null;
 
 function loadConfig() {
   try {
@@ -88,6 +93,30 @@ async function loadTasks() {
 function saveTasks({ sync = true } = {}) {
   localStorage.setItem(tasksKey, JSON.stringify(tasks));
   if (sync) syncTasksToSupabase().catch((error) => setRecordStatus(`Sync Supabase: ${error.message}`));
+}
+
+function loadFocusSessions() {
+  try {
+    return JSON.parse(localStorage.getItem(focusSessionsKey) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveFocusSession(durationMinutes = 25) {
+  const sessions = loadFocusSessions();
+  sessions.push({
+    id: `focus_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`,
+    durationMinutes,
+    completedAt: new Date().toISOString()
+  });
+  localStorage.setItem(focusSessionsKey, JSON.stringify(sessions.slice(-250)));
+}
+
+function getTodayFocusMinutes() {
+  return loadFocusSessions()
+    .filter((session) => isSameDay(session.completedAt, new Date()))
+    .reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
 }
 
 function createTask(title, zone = "do", extras = {}) {
@@ -178,7 +207,7 @@ async function signInWithEmail() {
     return;
   }
 
-  const email = document.getElementById("authEmailInput").value.trim();
+  const email = document.getElementById("authEmailInput")?.value.trim() || "";
   if (!email) {
     setRecordStatus("Wpisz email logowania.");
     return;
@@ -291,6 +320,7 @@ async function deleteTaskFromSupabase(task) {
 }
 
 function render() {
+  renderPomodoro();
   renderDateStrip();
 
   document.querySelectorAll("[data-list]").forEach((list) => {
@@ -308,6 +338,70 @@ function render() {
   });
 
   renderInsights();
+}
+
+function renderPomodoro() {
+  const display = document.getElementById("timerDisplay");
+  const toggle = document.getElementById("timerToggle");
+  const ring = document.getElementById("timerRing");
+  const stats = document.getElementById("timerStats");
+  const focusMeta = document.getElementById("focusMeta");
+  if (!display || !toggle || !ring || !stats) return;
+
+  const minutes = Math.floor(pomodoroRemaining / 60);
+  const seconds = pomodoroRemaining % 60;
+  const elapsedPercent = Math.round(((pomodoroDurationSeconds - pomodoroRemaining) / pomodoroDurationSeconds) * 100);
+  const todayMinutes = getTodayFocusMinutes();
+
+  display.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  toggle.setAttribute("aria-label", pomodoroRunning ? "Pauza focus timer" : "Start focus timer");
+  toggle.title = pomodoroRunning ? "Pauza" : "Start";
+  ring.style.setProperty("--timer-progress", `${Math.max(3, elapsedPercent)}%`);
+  stats.textContent = `${todayMinutes} min dziś`;
+  if (focusMeta) focusMeta.textContent = todayMinutes ? `${todayMinutes} min skupienia dzisiaj` : "Najważniejsze zadania dnia";
+}
+
+function togglePomodoro() {
+  if (pomodoroRunning) {
+    pausePomodoro();
+    return;
+  }
+  startPomodoro();
+}
+
+function startPomodoro() {
+  if (pomodoroRunning) return;
+  pomodoroRunning = true;
+  renderPomodoro();
+  pomodoroInterval = window.setInterval(() => {
+    pomodoroRemaining -= 1;
+    if (pomodoroRemaining <= 0) {
+      completePomodoro();
+      return;
+    }
+    renderPomodoro();
+  }, 1000);
+}
+
+function pausePomodoro() {
+  pomodoroRunning = false;
+  if (pomodoroInterval) window.clearInterval(pomodoroInterval);
+  pomodoroInterval = null;
+  renderPomodoro();
+}
+
+function resetPomodoro() {
+  pausePomodoro();
+  pomodoroRemaining = pomodoroDurationSeconds;
+  renderPomodoro();
+}
+
+function completePomodoro() {
+  pausePomodoro();
+  saveFocusSession(25);
+  pomodoroRemaining = pomodoroDurationSeconds;
+  render();
+  setRecordStatus("Focus zakończony: zapisane 25 minut skupienia.");
 }
 
 function createCard(task) {
@@ -849,6 +943,9 @@ document.getElementById("recordButton").addEventListener("click", () => {
   toggleRecording().catch((error) => setRecordStatus(error.message));
 });
 
+document.getElementById("timerToggle")?.addEventListener("click", togglePomodoro);
+document.getElementById("timerReset")?.addEventListener("click", resetPomodoro);
+
 document.querySelectorAll("[data-record-zone]").forEach((button) => {
   button.addEventListener("click", () => {
     forcedRecordZone = button.dataset.recordZone || "";
@@ -863,7 +960,8 @@ document.getElementById("syncCalendarButton")?.addEventListener("click", () => {
 
 document.getElementById("settingsButton").addEventListener("click", () => {
   const config = loadConfig();
-  document.getElementById("authEmailInput").value = currentUser?.email || config.authEmail || "";
+  const authEmailInput = document.getElementById("authEmailInput");
+  if (authEmailInput) authEmailInput.value = currentUser?.email || config.authEmail || "";
   document.getElementById("n8nWebhookInput").value = config.n8nWebhookUrl || "";
   document.getElementById("supabaseUrlInput").value = config.supabaseUrl || "";
   document.getElementById("supabaseAnonInput").value = config.supabaseAnonKey || "";
@@ -871,17 +969,17 @@ document.getElementById("settingsButton").addEventListener("click", () => {
   document.getElementById("settingsDialog").showModal();
 });
 
-document.getElementById("loginButton").addEventListener("click", () => {
+document.getElementById("loginButton")?.addEventListener("click", () => {
   signInWithEmail().catch((error) => setRecordStatus(`Login: ${error.message}`));
 });
 
-document.getElementById("logoutButton").addEventListener("click", () => {
+document.getElementById("logoutButton")?.addEventListener("click", () => {
   signOut().catch((error) => setRecordStatus(`Logout: ${error.message}`));
 });
 
 document.getElementById("saveSettings").addEventListener("click", () => {
   saveConfig({
-    authEmail: document.getElementById("authEmailInput").value.trim(),
+    authEmail: document.getElementById("authEmailInput")?.value.trim() || "",
     n8nWebhookUrl: document.getElementById("n8nWebhookInput").value.trim(),
     supabaseUrl: document.getElementById("supabaseUrlInput").value.trim(),
     supabaseAnonKey: document.getElementById("supabaseAnonInput").value.trim()

@@ -163,20 +163,40 @@ h1 {
 }
 
 .timer-card {
-  width: 132px;
-  height: 132px;
-  border-radius: 50%;
+  width: 148px;
+  min-height: 156px;
+  border-radius: 28px;
   background: rgba(255, 255, 255, 0.55);
   display: grid;
   place-items: center;
+  gap: 6px;
+  padding: 10px;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.64), 0 14px 26px rgba(159, 82, 62, 0.16);
+}
+
+.timer-face {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.52);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.timer-face strong {
+  position: absolute;
+  inset: auto 0 20px;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1;
 }
 
 .tomato {
   width: 84px;
   height: 84px;
   border-radius: 50%;
-  background: conic-gradient(from 24deg, #e7493a 0 78%, rgba(231, 73, 58, 0.16) 78% 100%);
+  background: conic-gradient(from 24deg, #e7493a var(--timer-progress, 0%), rgba(231, 73, 58, 0.16) var(--timer-progress, 0%) 100%);
   display: grid;
   place-items: center;
 }
@@ -189,7 +209,23 @@ h1 {
 }
 
 .timer-card small {
-  margin-top: -20px;
+  margin-top: -2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.timer-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.timer-actions button {
+  min-height: 28px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--ink);
+  font-size: 12px;
   font-weight: 900;
 }
 
@@ -775,7 +811,8 @@ dialog {
   }
 
   .timer-card {
-    display: none;
+    justify-self: center;
+    width: min(100%, 220px);
   }
 
   .quick-add {

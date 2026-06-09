@@ -409,6 +409,7 @@ function formatDue(value) {
 function renderDateStrip() {
   const strip = document.getElementById("dateStrip");
   const month = document.getElementById("calendarMonth");
+  const popover = document.getElementById("calendarPopover");
   if (!strip) return;
 
   const today = startOfDay(new Date());
@@ -424,13 +425,79 @@ function renderDateStrip() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `date-pill${index === 0 ? " selected" : ""}`;
+    button.dataset.date = date.toISOString();
     button.innerHTML = `
       <span class="weekday">${weekdayFormatter.format(date)}</span>
       <span class="day">${date.getDate()}</span>
-      <span class="events">${count ? `${count} termin` : " "}</span>
+      <span class="events">${formatEventCount(count)}</span>
     `;
+    button.addEventListener("click", () => {
+      strip.querySelectorAll(".date-pill").forEach((pill) => pill.classList.remove("selected"));
+      button.classList.add("selected");
+      renderCalendarPopover(date);
+    });
     strip.appendChild(button);
   }
+
+  if (popover) renderCalendarPopover(today);
+}
+
+function renderCalendarPopover(date) {
+  const popover = document.getElementById("calendarPopover");
+  if (!popover) return;
+
+  const dayTasks = tasks
+    .filter((task) => isSameDay(task.dueAt, date))
+    .sort((first, second) => new Date(first.dueAt).getTime() - new Date(second.dueAt).getTime());
+  const title = date.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });
+  const calendarUrl = googleCalendarDayUrl(date);
+
+  const items = dayTasks.length
+    ? `<ul>${dayTasks.map((task) => `
+        <li>
+          <span class="calendar-event-time">${formatEventTime(task.dueAt)}</span>
+          <strong>${escapeHtml(task.title)}</strong>
+        </li>
+      `).join("")}</ul>`
+    : `<p class="calendar-empty">Brak terminów w aplikacji dla tego dnia.</p>`;
+
+  popover.innerHTML = `
+    <header>
+      <strong>${title}</strong>
+      <a href="${calendarUrl}" target="_blank" rel="noopener">Otwórz Google</a>
+    </header>
+    ${items}
+  `;
+  popover.hidden = false;
+}
+
+function formatEventCount(count) {
+  if (!count) return " ";
+  if (count === 1) return "1 termin";
+  if (count > 1 && count < 5) return `${count} terminy`;
+  return `${count} terminów`;
+}
+
+function formatEventTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Bez godziny";
+  return date.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+}
+
+function googleCalendarDayUrl(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `https://calendar.google.com/calendar/u/0/r/day/${year}/${month}/${day}`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 function startOfDay(date) {

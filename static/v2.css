@@ -268,6 +268,62 @@ h1 {
   color: #174c47;
 }
 
+.calendar-popover {
+  border: 1px solid rgba(78, 48, 32, 0.1);
+  border-radius: 18px;
+  background: #fff8ef;
+  padding: 14px;
+  box-shadow: 0 12px 26px rgba(78, 48, 32, 0.12);
+}
+
+.calendar-popover[hidden] {
+  display: none;
+}
+
+.calendar-popover header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.calendar-popover strong {
+  font-size: 17px;
+}
+
+.calendar-popover a {
+  color: #174c47;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.calendar-popover ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.calendar-popover li {
+  border-radius: 14px;
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.calendar-event-time {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.calendar-empty {
+  color: var(--muted);
+  font-weight: 800;
+}
+
 .quick-add {
   display: grid;
   grid-template-columns: 1fr 180px 110px;

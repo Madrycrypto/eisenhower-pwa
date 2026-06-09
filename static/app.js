@@ -648,6 +648,26 @@ function createCard(task) {
   focus.setAttribute("aria-pressed", String(task.id === activeFocusTaskId));
   focus.addEventListener("click", () => selectFocusTask(task.id));
 
+  const done = document.createElement("button");
+  done.type = "button";
+  done.textContent = task.status === "zrobione" ? "Cofnij" : "Zrobione";
+  done.addEventListener("click", () => {
+    const isDone = task.status === "zrobione";
+    updateTask(task.id, {
+      status: isDone ? "planowane" : "zrobione",
+      completedAt: isDone ? "" : new Date().toISOString()
+    });
+  });
+
+  const details = document.createElement("details");
+  details.className = "card-more";
+
+  const summary = document.createElement("summary");
+  summary.textContent = "Szczegóły";
+
+  const morePanel = document.createElement("div");
+  morePanel.className = "card-more-panel";
+
   const moveButtons = document.createElement("div");
   moveButtons.className = "move-buttons";
   Object.entries(zoneShortNames).forEach(([zone, name]) => {
@@ -658,17 +678,6 @@ function createCard(task) {
     button.className = task.zone === zone ? "active" : "";
     button.addEventListener("click", () => updateTask(task.id, { zone }));
     moveButtons.appendChild(button);
-  });
-
-  const done = document.createElement("button");
-  done.type = "button";
-  done.textContent = task.status === "zrobione" ? "Cofnij" : "Zrobione";
-  done.addEventListener("click", () => {
-    const isDone = task.status === "zrobione";
-    updateTask(task.id, {
-      status: isDone ? "planowane" : "zrobione",
-      completedAt: isDone ? "" : new Date().toISOString()
-    });
   });
 
   const remove = document.createElement("button");
@@ -685,7 +694,7 @@ function createCard(task) {
     render();
   });
 
-  actions.append(focus, moveButtons, done);
+  morePanel.append(moveButtons);
 
   if (task.zone !== "plan") {
     const postpone = document.createElement("button");
@@ -698,10 +707,12 @@ function createCard(task) {
         lastPostponedAt: new Date().toISOString()
       });
     });
-    actions.append(postpone);
+    morePanel.append(postpone);
   }
 
-  actions.append(remove);
+  morePanel.append(remove);
+  details.append(summary, morePanel);
+  actions.append(focus, done, details);
   card.append(title, meta, actions);
   card.addEventListener("dragstart", () => card.classList.add("dragging"));
   card.addEventListener("dragend", () => card.classList.remove("dragging"));

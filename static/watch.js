@@ -15,11 +15,17 @@ const zoneNames = {
   delete: "Usuń"
 };
 
-let activeZone = "do";
-let isRecordingHint = false;
 let supabase = null;
 let currentUser = null;
 let isSyncing = false;
+let mediaRecorder = null;
+let recordingStream = null;
+let audioChunks = [];
+let isRecording = false;
+let activeRecordButton = null;
+let activeRecordZone = "";
+let speechRecognition = null;
+let liveTranscript = "";
 
 function setStatus(text) {
   document.getElementById("status").textContent = text;
@@ -38,20 +44,24 @@ function saveTasks(tasks, { sync = true } = {}) {
   if (sync) syncTasksToSupabase().catch((error) => setStatus(`Sync: ${error.message}`));
 }
 
-function createTask(title, zone) {
+function createTask(title, zone = "do", extras = {}) {
   const now = new Date().toISOString();
   return {
     id: `task_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`,
     title,
-    zone,
+    zone: normalizeZone(zone),
     status: "planowane",
-    dueAt: "",
-    notes: "Dodane z widoku watch.",
-    calendarEventId: "",
-    postponedCount: 0,
+    dueAt: extras.dueAt || "",
+    notes: extras.notes || "Dodane z widoku watch.",
+    calendarEventId: extras.calendarEventId || "",
+    postponedCount: Number(extras.postponedCount || 0),
     createdAt: now,
     updatedAt: now
   };
+}
+
+function normalizeZone(zone) {
+  return ["do", "plan", "delegate", "delete"].includes(zone) ? zone : "do";
 }
 
 function refresh() {
@@ -60,16 +70,24 @@ function refresh() {
   document.getElementById("countPlan").textContent = tasks.filter((task) => task.zone === "plan").length;
   document.getElementById("countDelegate").textContent = tasks.filter((task) => task.zone === "delegate").length;
   document.getElementById("countDelete").textContent = tasks.filter((task) => task.zone === "delete").length;
+}
 
-  document.querySelectorAll("[data-zone]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.zone === activeZone);
-  });
+function loadConfig() {
+  try {
+    return normalizeConfig(JSON.parse(localStorage.getItem(configKey) || "{}"));
+  } catch {
+    return { ...defaultConfig };
+  }
+}
 
-  const visible = tasks.filter((task) => task.zone === activeZone);
-  document.getElementById("activeZoneLabel").textContent = zoneNames[activeZone];
-  document.getElementById("visibleCount").textContent = `${visible.length} zadań`;
-  renderTasks(visible);
-  setStatus("Dotknij kafla, żeby zobaczyć zadania.");
+function normalizeConfig(saved = {}) {
+  return {
+    ...defaultConfig,
+    ...saved,
+    n8nWebhookUrl: saved.n8nWebhookUrl?.trim() || defaultConfig.n8nWebhookUrl,
+    supabaseUrl: saved.supabaseUrl?.trim() || defaultConfig.supabaseUrl,
+    supabaseAnonKey: saved.supabaseAnonKey?.trim() || defaultConfig.supabaseAnonKey
+  };
 }
 
 function getSupabaseConfig() {
@@ -94,7 +112,7 @@ function toDbTask(task) {
     client_id: task.id,
     user_id: currentUser.id,
     title: task.title,
-    zone: task.zone,
+    zone: normalizeZone(task.zone),
     status: task.status || "planowane",
     due_at: task.dueAt || null,
     notes: task.notes || "",
@@ -113,7 +131,7 @@ function fromDbTask(row) {
     id: row.client_id || row.id,
     dbId: row.id,
     title: row.title,
-    zone: row.zone,
+    zone: normalizeZone(row.zone),
     status: row.status || "planowane",
     dueAt: row.due_at || "",
     notes: row.notes || "",
@@ -141,7 +159,7 @@ function mergeTasks(localTasks, remoteTasks) {
 async function initSupabase() {
   const client = getSupabase();
   if (!client) {
-    setStatus("Tryb lokalny. Ustaw Supabase w Ustawieniach.");
+    setStatus("Tryb lokalny.");
     return;
   }
   const { data, error } = await client.auth.getSession();
@@ -152,7 +170,7 @@ async function initSupabase() {
     if (currentUser) await syncTasksFromSupabase();
   });
   if (currentUser) await syncTasksFromSupabase();
-  else setStatus("Supabase gotowy. Zaloguj email w Ustawieniach.");
+  else setStatus("Gotowe.");
 }
 
 async function syncTasksFromSupabase() {
@@ -166,7 +184,7 @@ async function syncTasksFromSupabase() {
     saveTasks(merged, { sync: false });
     refresh();
     await syncTasksToSupabase();
-    setStatus(`Sync: ${currentUser.email || "OK"}`);
+    setStatus("Sync OK.");
   } finally {
     isSyncing = false;
   }
@@ -181,178 +199,197 @@ async function syncTasksToSupabase() {
   if (error) throw error;
 }
 
-async function deleteTaskFromSupabase(task) {
-  const client = getSupabase();
-  if (!client || !currentUser) return;
-  await client.from("tasks").delete().eq("client_id", task.id);
-}
-
-function renderTasks(visible) {
-  const list = document.getElementById("taskList");
-  list.innerHTML = "";
-
-  if (visible.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "task";
-    empty.innerHTML = "<strong>Brak zadań w tym kwadracie.</strong>";
-    list.appendChild(empty);
-    return;
-  }
-
-  visible.forEach((task) => {
-    const item = document.createElement("article");
-    item.className = "task";
-
-    const title = document.createElement("strong");
-    title.textContent = task.title;
-
-    const actions = document.createElement("div");
-    actions.className = "task-actions";
-
-    const done = document.createElement("button");
-    done.type = "button";
-    done.textContent = task.status === "zrobione" ? "Cofnij" : "Zrobione";
-    done.addEventListener("click", () => updateTask(task.id, {
-      status: task.status === "zrobione" ? "planowane" : "zrobione",
-      completedAt: task.status === "zrobione" ? "" : new Date().toISOString()
-    }));
-
-    const move = document.createElement("button");
-    move.type = "button";
-    move.textContent = nextZoneLabel(task.zone);
-    move.addEventListener("click", () => updateTask(task.id, { zone: nextZone(task.zone) }));
-
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.textContent = "Usuń";
-    remove.addEventListener("click", async () => {
-      await deleteTaskFromSupabase(task).catch((error) => setStatus(`Delete: ${error.message}`));
-      saveTasks(getTasks().filter((itemTask) => itemTask.id !== task.id));
-      refresh();
-    });
-
-    actions.append(done, move, remove);
-    item.append(title, actions);
-    list.appendChild(item);
-  });
-}
-
-function nextZone(zone) {
-  if (zone === "do") return "plan";
-  if (zone === "plan") return "delegate";
-  if (zone === "delegate") return "delete";
-  return "do";
-}
-
-function nextZoneLabel(zone) {
-  return `Do ${zoneNames[nextZone(zone)]}`;
-}
-
-function updateTask(id, changes) {
-  const tasks = getTasks().map((task) => (
-    task.id === id ? { ...task, ...changes, updatedAt: new Date().toISOString() } : task
-  ));
+function addTaskFromParsed(parsed, fallbackText, forcedZone) {
+  const taskData = parsed?.task || parseLocalCommand(fallbackText || "Nagranie audio", forcedZone);
+  if (forcedZone) taskData.zone = forcedZone;
+  const tasks = getTasks();
+  tasks.unshift(createTask(taskData.title, taskData.zone, {
+    dueAt: taskData.dueAt || "",
+    notes: taskData.notes || parsed?.transcript || "",
+    calendarEventId: taskData.calendarEventId || ""
+  }));
   saveTasks(tasks);
   refresh();
 }
 
-function loadConfig() {
-  try {
-    return normalizeConfig(JSON.parse(localStorage.getItem(configKey) || "{}"));
-  } catch {
-    return { ...defaultConfig };
-  }
-}
-
-function normalizeConfig(saved = {}) {
+function parseLocalCommand(text, forcedZone) {
+  const clean = text
+    .replace(/^(zrób teraz|zrob teraz|zaplanuj|deleguj|usuń|usun|do first|delay|delegate|don't do|dont do)\s*[-:]?\s*/i, "")
+    .trim();
   return {
-    ...defaultConfig,
-    ...saved,
-    n8nWebhookUrl: saved.n8nWebhookUrl?.trim() || defaultConfig.n8nWebhookUrl,
-    supabaseUrl: saved.supabaseUrl?.trim() || defaultConfig.supabaseUrl,
-    supabaseAnonKey: saved.supabaseAnonKey?.trim() || defaultConfig.supabaseAnonKey
+    title: clean || text,
+    zone: forcedZone || inferZone(text),
+    notes: "Dodane lokalnie z widoku watch.",
+    dueAt: ""
   };
 }
 
-function saveConfig(config) {
-  localStorage.setItem(configKey, JSON.stringify(normalizeConfig(config)));
+function inferZone(text) {
+  if (/zrób teraz|zrob teraz|do first|dzisiaj|dziś|dzis|teraz|natychmiast|asap|pilne/i.test(text)) return "do";
+  if (/zaplanuj|delay|jutro|pojutrze|za kilka dni|przyszły|przyszly|spotkanie|wizyta|termin|o \d{1,2}/i.test(text)) return "plan";
+  if (/deleguj|delegate|przekaż|przekaz/i.test(text)) return "delegate";
+  if (/usuń|usun|don't do|dont do|kasuj|wyrzuć|wyrzuc/i.test(text)) return "delete";
+  return "do";
 }
 
-document.querySelectorAll("[data-zone]").forEach((button) => {
-  button.addEventListener("click", () => {
-    activeZone = button.dataset.zone;
-    document.getElementById("zoneInput").value = activeZone;
-    refresh();
+async function sendAudioToN8n(url, blob, forcedZone) {
+  const formData = new FormData();
+  const filename = getAudioFilename(blob.type);
+  formData.append("data", blob, filename);
+  formData.append("file", blob, filename);
+  formData.append("forcedZone", forcedZone || "");
+  formData.append("timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
+  formData.append("now", new Date().toISOString());
+  formData.append("source", "watch-audio");
+
+  const response = await fetch(url, {
+    method: "POST",
+    body: formData
   });
-});
 
-document.getElementById("settingsButton").addEventListener("click", () => {
-  const config = loadConfig();
-  const url = prompt("Webhook n8n", config.n8nWebhookUrl || "https://n8n.maciejmostowski.pl/webhook/eisenhower-intake");
-  if (url === null) return;
-  const supabaseUrl = prompt("Supabase URL", config.supabaseUrl || "");
-  if (supabaseUrl === null) return;
-  const supabaseAnonKey = prompt("Supabase anon key", config.supabaseAnonKey || "");
-  if (supabaseAnonKey === null) return;
-  const email = prompt("Email logowania Supabase", config.authEmail || "");
-  saveConfig({ ...config, n8nWebhookUrl: url.trim(), supabaseUrl: supabaseUrl.trim(), supabaseAnonKey: supabaseAnonKey.trim(), authEmail: (email || "").trim() });
-  supabase = null;
-  currentUser = null;
-  if (email) {
-    const client = getSupabase();
-    client?.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: location.href.split("#")[0] } })
-      .then(({ error }) => setStatus(error ? `Login: ${error.message}` : "Link logowania wysłany."))
-      .catch((error) => setStatus(`Login: ${error.message}`));
-  } else {
-    initSupabase().catch((error) => setStatus(`Supabase: ${error.message}`));
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(message || "n8n nie przyjął nagrania.");
   }
-});
 
-document.getElementById("recordButton").addEventListener("click", () => {
-  const button = document.getElementById("recordButton");
-  const input = document.getElementById("taskInput");
-  isRecordingHint = !isRecordingHint;
-  button.classList.toggle("recording", isRecordingHint);
-  input.focus();
-  setStatus(isRecordingHint ? "Dyktuj w polu tekstowym, potem kliknij Dodaj." : "Dyktowanie zatrzymane.");
-});
+  return response.json();
+}
 
-document.getElementById("quickForm").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const input = document.getElementById("taskInput");
-  const title = input.value.trim();
-  const zone = document.getElementById("zoneInput").value;
-  if (!title) return;
-  isRecordingHint = false;
-  document.getElementById("recordButton").classList.remove("recording");
+function getPreferredAudioMimeType() {
+  if (!window.MediaRecorder || typeof window.MediaRecorder.isTypeSupported !== "function") return "";
+  return [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4;codecs=mp4a.40.2",
+    "audio/mp4",
+    "audio/mpeg"
+  ].find((type) => window.MediaRecorder.isTypeSupported(type)) || "";
+}
 
-  const tasks = getTasks();
-  tasks.unshift(createTask(title, zone));
-  saveTasks(tasks);
-  input.value = "";
-  activeZone = zone;
-  refresh();
+function getAudioFilename(mimeType = "") {
+  const type = mimeType.toLowerCase();
+  if (type.includes("webm")) return "recording.webm";
+  if (type.includes("mp4") || type.includes("m4a")) return "recording.m4a";
+  if (type.includes("mpeg") || type.includes("mp3")) return "recording.mp3";
+  if (type.includes("wav")) return "recording.wav";
+  return "recording.webm";
+}
+
+function canRecordAudio() {
+  return Boolean(
+    window.isSecureContext
+    && navigator.mediaDevices
+    && typeof navigator.mediaDevices.getUserMedia === "function"
+    && typeof window.MediaRecorder === "function"
+  );
+}
+
+async function toggleRecording(forcedZone, button) {
+  if (isRecording) {
+    stopSpeechPreview();
+    if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+    return;
+  }
 
   const config = loadConfig();
-  if (config.n8nWebhookUrl) {
+  if (!config.n8nWebhookUrl) {
+    setStatus("Brak webhooka n8n.");
+    return;
+  }
+
+  if (!canRecordAudio()) {
+    setStatus("Mikrofon wymaga HTTPS.");
+    return;
+  }
+
+  try {
+    recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (error) {
+    setStatus(`Brak mikrofonu: ${error.message || error.name}`);
+    return;
+  }
+
+  audioChunks = [];
+  liveTranscript = "";
+  isRecording = true;
+  activeRecordButton = button;
+  activeRecordZone = forcedZone || "";
+  button.classList.add("recording");
+  if (button.id === "recordButton") button.textContent = "Stop";
+  startSpeechPreviewIfAvailable();
+
+  const preferredMimeType = getPreferredAudioMimeType();
+  mediaRecorder = preferredMimeType
+    ? new MediaRecorder(recordingStream, { mimeType: preferredMimeType })
+    : new MediaRecorder(recordingStream);
+
+  mediaRecorder.addEventListener("dataavailable", (event) => {
+    if (event.data.size > 0) audioChunks.push(event.data);
+  });
+
+  mediaRecorder.addEventListener("stop", async () => {
+    const stoppedButton = activeRecordButton;
+    const stoppedZone = activeRecordZone;
+    isRecording = false;
+    stoppedButton?.classList.remove("recording");
+    if (stoppedButton?.id === "recordButton") stoppedButton.textContent = "Nagraj";
+    activeRecordButton = null;
+    activeRecordZone = "";
+    recordingStream?.getTracks().forEach((track) => track.stop());
+    recordingStream = null;
+    setStatus("Wysyłam...");
+
     try {
-      await fetch(config.n8nWebhookUrl, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "content-type": "text/plain" },
-        body: JSON.stringify({
-          text: title,
-          forcedZone: zone,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          now: new Date().toISOString(),
-          source: "watch"
-        })
-      });
-      setStatus("Dodane lokalnie i wysłane do n8n.");
-    } catch {
-      setStatus("Dodane lokalnie. n8n niedostępny.");
+      const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || preferredMimeType || "audio/webm" });
+      const parsed = await sendAudioToN8n(config.n8nWebhookUrl, blob, stoppedZone);
+      const transcript = parsed?.transcript || liveTranscript || "";
+      addTaskFromParsed(parsed, transcript, stoppedZone);
+      setStatus(stoppedZone ? `Dodane do: ${zoneNames[stoppedZone]}.` : "Dodane.");
+    } catch (error) {
+      const text = liveTranscript.trim();
+      if (text) {
+        addTaskFromParsed(null, text, stoppedZone);
+        setStatus("Audio nie przeszło. Dodałem tekst.");
+      } else {
+        setStatus(`Błąd: ${error.message}`);
+      }
     }
-  }
+  });
+
+  mediaRecorder.start();
+  setStatus(forcedZone ? `Nagrywam: ${zoneNames[forcedZone]}.` : "Nagrywam.");
+}
+
+function startSpeechPreviewIfAvailable() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
+  speechRecognition = new SpeechRecognition();
+  speechRecognition.lang = "pl-PL";
+  speechRecognition.interimResults = true;
+  speechRecognition.continuous = true;
+  speechRecognition.addEventListener("result", (event) => {
+    liveTranscript = Array.from(event.results)
+      .map((result) => result[0]?.transcript || "")
+      .join(" ")
+      .trim();
+  });
+  speechRecognition.start();
+}
+
+function stopSpeechPreview() {
+  if (!speechRecognition) return;
+  speechRecognition.stop();
+  speechRecognition = null;
+}
+
+document.querySelectorAll("[data-record-zone]").forEach((button) => {
+  button.addEventListener("click", () => {
+    if (isRecording && activeRecordButton !== button) {
+      setStatus("Najpierw zatrzymaj obecne nagranie.");
+      return;
+    }
+    toggleRecording(button.dataset.recordZone || "", button).catch((error) => setStatus(`Record: ${error.message}`));
+  });
 });
 
 refresh();

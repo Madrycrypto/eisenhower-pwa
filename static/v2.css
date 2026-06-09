@@ -543,6 +543,29 @@ h2 {
   gap: 6px;
 }
 
+.card-more {
+  width: 100%;
+}
+
+.card-more summary {
+  min-height: 28px;
+  width: fit-content;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.64);
+  color: var(--ink);
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.card-more-panel {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+}
+
 .move-buttons {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

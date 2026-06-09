@@ -14,10 +14,6 @@
       --text: #292420;
       --muted: #8f7e72;
       --line: rgba(83, 52, 38, 0.12);
-      --coral: #ff765d;
-      --teal: #86dcd3;
-      --lime: #cfe985;
-      --yellow: #ffd178;
       --shadow: 0 12px 26px rgba(117, 76, 54, 0.16);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
@@ -30,21 +26,21 @@
       min-height: 100vh;
       margin: 0;
       background:
-        radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.44), transparent 34%),
+        radial-gradient(circle at 24% 0%, rgba(255, 255, 255, 0.5), transparent 34%),
         linear-gradient(135deg, #efd1c4, #f7e6dc 52%, #f1d8cc);
       color: var(--text);
     }
 
     main {
-      width: min(100vw - 18px, 380px);
+      width: min(100vw - 14px, 380px);
       margin: 0 auto;
-      padding: max(10px, env(safe-area-inset-top)) 0 max(10px, env(safe-area-inset-bottom));
+      padding: max(8px, env(safe-area-inset-top)) 0 max(8px, env(safe-area-inset-bottom));
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
 
     .watch-card {
-      border: 1px solid rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.76);
       border-radius: 22px;
       background: var(--surface);
       box-shadow: var(--shadow);
@@ -55,34 +51,44 @@
 
     h1 {
       margin: 0;
-      font-size: clamp(18px, 6.4vw, 28px);
+      font-size: clamp(17px, 6vw, 24px);
       line-height: 1.05;
       letter-spacing: 0;
     }
 
     .status {
+      min-height: 16px;
       margin: 0;
       color: var(--muted);
-      font-size: 12px;
-      line-height: 1.25;
-    }
-
-    button,
-    input,
-    select {
-      width: 100%;
-      min-height: 42px;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.78);
-      color: var(--text);
-      font: inherit;
-      padding: 0 10px;
+      font-size: 11px;
+      line-height: 1.2;
     }
 
     button {
+      border: 1px solid var(--line);
+      color: var(--text);
+      font: inherit;
       cursor: pointer;
-      font-weight: 800;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .record-main {
+      min-height: 70px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #ffbf5d, #ff735e);
+      border-color: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 10px 18px rgba(255, 118, 93, 0.2);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .record-main.recording,
+    .zone-mic.recording {
+      background: #ef4d3b;
+      color: white;
+      animation: pulse 1s ease-in-out infinite;
     }
 
     .grid {
@@ -92,30 +98,56 @@
     }
 
     .tile {
+      min-height: 92px;
       border: 1px solid var(--line);
-      border-radius: 10px;
+      border-radius: 18px;
       padding: 10px;
-      min-height: 74px;
       display: grid;
-      align-content: center;
-      gap: 4px;
-      text-align: left;
-    }
-
-    .tile.active {
-      outline: 3px solid rgba(41, 36, 32, 0.3);
-      outline-offset: -4px;
+      grid-template-columns: 1fr 40px;
+      gap: 8px;
+      align-items: center;
     }
 
     .tile strong {
-      font-size: 22px;
+      display: block;
+      font-size: 28px;
       line-height: 1;
     }
 
     .tile span {
-      color: var(--muted);
+      display: block;
+      margin-top: 5px;
+      color: rgba(41, 36, 32, 0.66);
       font-size: 12px;
-      line-height: 1.15;
+      font-weight: 800;
+      line-height: 1.12;
+    }
+
+    .zone-mic {
+      width: 40px;
+      min-height: 40px;
+      border-radius: 999px;
+      padding: 0;
+      background: rgba(255, 255, 255, 0.58);
+      display: grid;
+      place-items: center;
+    }
+
+    .mic-icon {
+      width: 16px;
+      height: 20px;
+      display: block;
+      background: currentColor;
+      -webkit-mask:
+        radial-gradient(circle at 50% 31%, #000 0 5px, transparent 5.5px),
+        linear-gradient(#000 0 0) 50% 15px / 9px 2px no-repeat,
+        linear-gradient(#000 0 0) 50% 16px / 2px 7px no-repeat,
+        linear-gradient(#000 0 0) 50% 100% / 11px 2px no-repeat;
+      mask:
+        radial-gradient(circle at 50% 31%, #000 0 5px, transparent 5.5px),
+        linear-gradient(#000 0 0) 50% 15px / 9px 2px no-repeat,
+        linear-gradient(#000 0 0) 50% 16px / 2px 7px no-repeat,
+        linear-gradient(#000 0 0) 50% 100% / 11px 2px no-repeat;
     }
 
     .do {
@@ -134,140 +166,94 @@
       background: linear-gradient(135deg, #ffc45d, #ffe5bd);
     }
 
-    form {
-      display: grid;
-      gap: 8px;
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(0.96); }
     }
 
-    .quick-row {
-      display: grid;
-      grid-template-columns: 46px 1fr;
-      gap: 8px;
-    }
+    @media (max-height: 360px) {
+      main {
+        width: min(100vw - 10px, 380px);
+        padding-top: 5px;
+        padding-bottom: 5px;
+      }
 
-    .record {
-      width: 46px;
-      min-height: 42px;
-      padding: 0;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, #ffbf5d, #ff735e);
-      border-color: rgba(255, 255, 255, 0.62);
-      box-shadow: 0 8px 14px rgba(255, 118, 93, 0.18);
-    }
+      .watch-card {
+        border-radius: 18px;
+        padding: 8px;
+        gap: 7px;
+      }
 
-    .record::before {
-      content: "";
-      width: 16px;
-      height: 20px;
-      display: block;
-      background: currentColor;
-      -webkit-mask:
-        radial-gradient(circle at 50% 31%, #000 0 5px, transparent 5.5px),
-        linear-gradient(#000 0 0) 50% 15px / 9px 2px no-repeat,
-        linear-gradient(#000 0 0) 50% 16px / 2px 7px no-repeat,
-        linear-gradient(#000 0 0) 50% 100% / 11px 2px no-repeat;
-      mask:
-        radial-gradient(circle at 50% 31%, #000 0 5px, transparent 5.5px),
-        linear-gradient(#000 0 0) 50% 15px / 9px 2px no-repeat,
-        linear-gradient(#000 0 0) 50% 16px / 2px 7px no-repeat,
-        linear-gradient(#000 0 0) 50% 100% / 11px 2px no-repeat;
-    }
+      h1 {
+        font-size: 18px;
+      }
 
-    .record.recording {
-      background: #ef4d3b;
-      color: white;
-    }
+      .status {
+        display: none;
+      }
 
-    .list-head {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 800;
-    }
+      .record-main {
+        min-height: 54px;
+        border-radius: 14px;
+        font-size: 16px;
+      }
 
-    .task-list {
-      display: grid;
-      gap: 8px;
-      max-height: 220px;
-      overflow: auto;
-      padding-right: 2px;
-    }
+      .grid {
+        gap: 6px;
+      }
 
-    .task {
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.72);
-      padding: 9px;
-      display: grid;
-      gap: 7px;
-    }
+      .tile {
+        min-height: 76px;
+        border-radius: 14px;
+        padding: 8px;
+        grid-template-columns: 1fr 34px;
+      }
 
-    .task strong {
-      font-size: 13px;
-      line-height: 1.22;
-      overflow-wrap: anywhere;
-    }
+      .tile strong {
+        font-size: 24px;
+      }
 
-    .task-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-    }
+      .tile span {
+        font-size: 11px;
+      }
 
-    .task-actions button {
-      min-height: 32px;
-      padding: 0 6px;
-      font-size: 12px;
-    }
-
-    .small {
-      min-height: 36px;
-      font-size: 13px;
+      .zone-mic {
+        width: 34px;
+        min-height: 34px;
+      }
     }
   </style>
 </head>
 <body>
   <main>
     <section class="watch-card">
-    <header>
-      <h1>Manage Your Work</h1>
-      <p class="status" id="status">Ładuję...</p>
-    </header>
+      <header>
+        <h1>Manage Your Work</h1>
+        <p class="status" id="status">Ładuję...</p>
+      </header>
 
-    <section class="grid" aria-label="Liczniki zadań">
-      <button class="tile do active" type="button" data-zone="do"><strong id="countDo">0</strong><span>Zrób teraz</span></button>
-      <button class="tile plan" type="button" data-zone="plan"><strong id="countPlan">0</strong><span>Zaplanuj</span></button>
-      <button class="tile delegate" type="button" data-zone="delegate"><strong id="countDelegate">0</strong><span>Deleguj</span></button>
-      <button class="tile delete" type="button" data-zone="delete"><strong id="countDelete">0</strong><span>Usuń</span></button>
-    </section>
+      <button class="record-main" id="recordButton" type="button" data-record-zone="">
+        Nagraj
+      </button>
 
-    <section aria-label="Zadania">
-      <div class="list-head">
-        <span id="activeZoneLabel">Zrób teraz</span>
-        <span id="visibleCount">0 zadań</span>
-      </div>
-      <div class="task-list" id="taskList"></div>
-    </section>
-
-    <form id="quickForm">
-      <div class="quick-row">
-        <button class="record" id="recordButton" type="button" aria-label="Dyktuj zadanie"></button>
-        <input id="taskInput" autocomplete="off" placeholder="Krótka notatka">
-      </div>
-      <select id="zoneInput">
-        <option value="do">Zrób teraz</option>
-        <option value="plan">Zaplanuj</option>
-        <option value="delegate">Deleguj</option>
-        <option value="delete">Usuń</option>
-      </select>
-      <button class="small" type="submit">Dodaj</button>
-    </form>
-
-    <button class="small" id="settingsButton" type="button">Ustawienia</button>
+      <section class="grid" aria-label="Kwadraty">
+        <article class="tile do">
+          <div><strong id="countDo">0</strong><span>Zrób teraz</span></div>
+          <button class="zone-mic" type="button" data-record-zone="do" aria-label="Nagraj do Zrób teraz"><span class="mic-icon"></span></button>
+        </article>
+        <article class="tile plan">
+          <div><strong id="countPlan">0</strong><span>Zaplanuj</span></div>
+          <button class="zone-mic" type="button" data-record-zone="plan" aria-label="Nagraj do Zaplanuj"><span class="mic-icon"></span></button>
+        </article>
+        <article class="tile delegate">
+          <div><strong id="countDelegate">0</strong><span>Deleguj</span></div>
+          <button class="zone-mic" type="button" data-record-zone="delegate" aria-label="Nagraj do Deleguj"><span class="mic-icon"></span></button>
+        </article>
+        <article class="tile delete">
+          <div><strong id="countDelete">0</strong><span>Usuń</span></div>
+          <button class="zone-mic" type="button" data-record-zone="delete" aria-label="Nagraj do Usuń"><span class="mic-icon"></span></button>
+        </article>
+      </section>
     </section>
   </main>
 

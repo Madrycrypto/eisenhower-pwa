@@ -24,6 +24,7 @@ const zoneShortNames = {
 const tasksKey = "eisenhower-static-tasks";
 const configKey = "eisenhower-static-config";
 const focusSessionsKey = "eisenhower-focus-sessions";
+const tickSoundKey = "eisenhower-tick-sound";
 const pomodoroDurationSeconds = 25 * 60;
 const defaultConfig = {
   n8nWebhookUrl: "https://n8n.maciejmostowski.pl/webhook/eisenhower-intake",
@@ -45,6 +46,8 @@ let finalTranscript = "";
 let pomodoroRemaining = pomodoroDurationSeconds;
 let pomodoroRunning = false;
 let pomodoroInterval = null;
+let tickSoundEnabled = localStorage.getItem(tickSoundKey) === "true";
+let tickAudioContext = null;
 
 function loadConfig() {
   try {
@@ -345,6 +348,7 @@ function renderPomodoro() {
   const toggle = document.getElementById("timerToggle");
   const ring = document.getElementById("timerRing");
   const stats = document.getElementById("timerStats");
+  const soundToggle = document.getElementById("timerSoundToggle");
   const focusMeta = document.getElementById("focusMeta");
   if (!display || !toggle || !ring || !stats) return;
 
@@ -358,6 +362,10 @@ function renderPomodoro() {
   toggle.title = pomodoroRunning ? "Pauza" : "Start";
   ring.style.setProperty("--timer-progress", `${Math.max(3, elapsedPercent)}%`);
   stats.textContent = `${todayMinutes} min dziś`;
+  if (soundToggle) {
+    soundToggle.setAttribute("aria-pressed", String(tickSoundEnabled));
+    soundToggle.textContent = tickSoundEnabled ? "Tyk ON" : "Dźwięk";
+  }
   if (focusMeta) focusMeta.textContent = todayMinutes ? `${todayMinutes} min skupienia dzisiaj` : "Najważniejsze zadania dnia";
 }
 
@@ -372,9 +380,11 @@ function togglePomodoro() {
 function startPomodoro() {
   if (pomodoroRunning) return;
   pomodoroRunning = true;
+  playTick({ soft: true });
   renderPomodoro();
   pomodoroInterval = window.setInterval(() => {
     pomodoroRemaining -= 1;
+    playTick();
     if (pomodoroRemaining <= 0) {
       completePomodoro();
       return;
@@ -401,7 +411,71 @@ function completePomodoro() {
   saveFocusSession(25);
   pomodoroRemaining = pomodoroDurationSeconds;
   render();
+  playFinishTone();
   setRecordStatus("Focus zakończony: zapisane 25 minut skupienia.");
+}
+
+async function toggleTickSound() {
+  tickSoundEnabled = !tickSoundEnabled;
+  localStorage.setItem(tickSoundKey, String(tickSoundEnabled));
+  if (tickSoundEnabled) {
+    await ensureTickAudioContext();
+    playTick();
+    setRecordStatus("Dźwięk tykającego zegara włączony.");
+  } else {
+    setRecordStatus("Dźwięk tykającego zegara wyłączony.");
+  }
+  renderPomodoro();
+}
+
+async function ensureTickAudioContext() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) throw new Error("Ta przeglądarka nie obsługuje Web Audio.");
+  if (!tickAudioContext) tickAudioContext = new AudioContext();
+  if (tickAudioContext.state === "suspended") await tickAudioContext.resume();
+  return tickAudioContext;
+}
+
+function playTick(options = {}) {
+  if (!tickSoundEnabled) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  if (!tickAudioContext) tickAudioContext = new AudioContext();
+  if (tickAudioContext.state === "suspended") {
+    tickAudioContext.resume().catch(() => {});
+    return;
+  }
+
+  const now = tickAudioContext.currentTime;
+  const oscillator = tickAudioContext.createOscillator();
+  const gain = tickAudioContext.createGain();
+  oscillator.type = "square";
+  oscillator.frequency.setValueAtTime(options.soft ? 760 : 980, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(options.soft ? 0.025 : 0.04, now + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+  oscillator.connect(gain);
+  gain.connect(tickAudioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.06);
+}
+
+function playFinishTone() {
+  if (!tickSoundEnabled || !tickAudioContext || tickAudioContext.state !== "running") return;
+  [660, 880, 1100].forEach((frequency, index) => {
+    const start = tickAudioContext.currentTime + index * 0.12;
+    const oscillator = tickAudioContext.createOscillator();
+    const gain = tickAudioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.055, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.11);
+    oscillator.connect(gain);
+    gain.connect(tickAudioContext.destination);
+    oscillator.start(start);
+    oscillator.stop(start + 0.12);
+  });
 }
 
 function createCard(task) {
@@ -945,6 +1019,9 @@ document.getElementById("recordButton").addEventListener("click", () => {
 
 document.getElementById("timerToggle")?.addEventListener("click", togglePomodoro);
 document.getElementById("timerReset")?.addEventListener("click", resetPomodoro);
+document.getElementById("timerSoundToggle")?.addEventListener("click", () => {
+  toggleTickSound().catch((error) => setRecordStatus(`Dźwięk: ${error.message}`));
+});
 
 document.querySelectorAll("[data-record-zone]").forEach((button) => {
   button.addEventListener("click", () => {

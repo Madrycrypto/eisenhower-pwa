@@ -163,7 +163,7 @@ h1 {
 }
 
 .timer-card {
-  width: 148px;
+  width: 168px;
   min-height: 156px;
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.55);
@@ -218,15 +218,21 @@ h1 {
 .timer-actions {
   display: flex;
   justify-content: center;
+  gap: 6px;
 }
 
 .timer-actions button {
   min-height: 28px;
-  padding: 0 12px;
+  padding: 0 10px;
   background: rgba(255, 255, 255, 0.68);
   color: var(--ink);
   font-size: 12px;
   font-weight: 900;
+}
+
+.timer-actions button[aria-pressed="true"] {
+  background: linear-gradient(135deg, #7ed9d1, #d8f3df);
+  color: #174c47;
 }
 
 .calendar-widget {

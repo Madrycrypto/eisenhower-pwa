@@ -30,11 +30,18 @@
           <strong id="focusTitle">Zrób teraz</strong>
           <span id="focusMeta">Najważniejsze zadania dnia</span>
         </div>
-        <div class="timer-card" aria-label="Focus timer">
-          <div class="tomato">
+        <div class="timer-card" aria-label="Pomodoro focus timer">
+          <button class="timer-face" id="timerToggle" type="button" aria-label="Start focus timer">
+            <div class="tomato" id="timerRing">
             <span></span>
+            </div>
+            <strong id="timerDisplay">25:00</strong>
+          </button>
+          <div class="timer-actions">
+            <button id="timerReset" type="button">Reset</button>
+            <button id="timerSoundToggle" type="button" aria-pressed="false">Dźwięk</button>
           </div>
-          <small>25 min</small>
+          <small id="timerStats">0 min dziś</small>
         </div>
       </section>
 
@@ -47,6 +54,7 @@
           <button type="button" id="syncCalendarButton">Sync</button>
         </div>
         <div class="date-strip" id="dateStrip"></div>
+        <div class="calendar-popover" id="calendarPopover" hidden></div>
       </section>
 
       <aside class="recorder" aria-label="Dyktowanie">

@@ -18,6 +18,8 @@ const zoneNames = {
 let supabase = null;
 let currentUser = null;
 let isSyncing = false;
+let tasksChannel = null;
+let syncPollTimer = null;
 let mediaRecorder = null;
 let recordingStream = null;
 let audioChunks = [];
@@ -166,6 +168,10 @@ async function initSupabase() {
   if (error) throw error;
   currentUser = data.session?.user || null;
   client.auth.onAuthStateChange(async (_event, session) => {
+    if (!session?.user || session.user.id !== currentUser?.id) {
+      await unsubscribeFromTaskChanges();
+      stopPeriodicSync();
+    }
     currentUser = session?.user || null;
     if (currentUser) await syncTasksFromSupabase();
   });
@@ -173,18 +179,23 @@ async function initSupabase() {
   else setStatus("Gotowe.");
 }
 
-async function syncTasksFromSupabase() {
+async function syncTasksFromSupabase({ replaceRemote = false, quiet = false } = {}) {
   const client = getSupabase();
   if (!client || !currentUser || isSyncing) return;
   isSyncing = true;
   try {
     const { data, error } = await client.from("tasks").select("*").order("updated_at", { ascending: false });
     if (error) throw error;
-    const merged = mergeTasks(getTasks(), (data || []).map(fromDbTask));
+    const localTasks = getTasks();
+    const remoteTasks = (data || []).map(fromDbTask);
+    const localOnly = replaceRemote ? localTasks.filter((task) => !task.dbId) : localTasks;
+    const merged = mergeTasks(localOnly, remoteTasks);
     saveTasks(merged, { sync: false });
     refresh();
     await syncTasksToSupabase();
-    setStatus("Sync OK.");
+    subscribeToTaskChanges();
+    startPeriodicSync();
+    if (!quiet) setStatus("Sync OK.");
   } finally {
     isSyncing = false;
   }
@@ -195,8 +206,81 @@ async function syncTasksToSupabase() {
   if (!client || !currentUser || isSyncing) return;
   const tasks = getTasks();
   if (tasks.length === 0) return;
-  const { error } = await client.from("tasks").upsert(tasks.map(toDbTask), { onConflict: "user_id,client_id" });
+  const { data, error } = await client
+    .from("tasks")
+    .upsert(tasks.map(toDbTask), { onConflict: "user_id,client_id" })
+    .select("id,client_id,updated_at");
   if (error) throw error;
+  if (data?.length) {
+    const dbRows = new Map(data.map((row) => [row.client_id, row]));
+    let changed = false;
+    const updated = tasks.map((task) => {
+      const row = dbRows.get(task.id);
+      if (!row || task.dbId === row.id) return task;
+      changed = true;
+      return { ...task, dbId: row.id };
+    });
+    if (changed) saveTasks(updated, { sync: false });
+  }
+}
+
+function subscribeToTaskChanges() {
+  const client = getSupabase();
+  if (!client || !currentUser || tasksChannel) return;
+
+  tasksChannel = client
+    .channel(`tasks:${currentUser.id}:watch`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "tasks", filter: `user_id=eq.${currentUser.id}` },
+      handleTaskChange
+    )
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") setStatus("Sync live.");
+    });
+}
+
+async function unsubscribeFromTaskChanges() {
+  const client = getSupabase();
+  if (!client || !tasksChannel) return;
+  const channel = tasksChannel;
+  tasksChannel = null;
+  await client.removeChannel(channel);
+}
+
+function startPeriodicSync() {
+  if (syncPollTimer) return;
+  syncPollTimer = window.setInterval(() => {
+    syncTasksFromSupabase({ replaceRemote: true, quiet: true })
+      .catch((error) => setStatus(`Sync: ${error.message}`));
+  }, 12000);
+}
+
+function stopPeriodicSync() {
+  if (!syncPollTimer) return;
+  window.clearInterval(syncPollTimer);
+  syncPollTimer = null;
+}
+
+function handleTaskChange(payload) {
+  const tasks = getTasks();
+
+  if (payload.eventType === "DELETE") {
+    const oldRow = payload.old || {};
+    saveTasks(tasks.filter((task) => task.dbId !== oldRow.id && task.id !== oldRow.client_id), { sync: false });
+    refresh();
+    setStatus("Usunięto z innego urządzenia.");
+    return;
+  }
+
+  const row = payload.new;
+  if (!row?.client_id) return;
+  const remoteTask = fromDbTask(row);
+  const index = tasks.findIndex((task) => task.id === remoteTask.id || task.dbId === remoteTask.dbId);
+  if (index >= 0) tasks[index] = mergeTasks([tasks[index]], [remoteTask])[0];
+  else tasks.unshift(remoteTask);
+  saveTasks(tasks, { sync: false });
+  refresh();
 }
 
 function addTaskFromParsed(parsed, fallbackText, forcedZone) {

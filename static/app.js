@@ -43,6 +43,8 @@ let tasks = [];
 let supabase = null;
 let currentUser = null;
 let isSyncing = false;
+let tasksChannel = null;
+let syncPollTimer = null;
 let forcedRecordZone = "";
 let speechRecognition = null;
 let mediaRecorder = null;
@@ -232,6 +234,10 @@ async function initSupabase() {
   updateAuthStatus();
 
   client.auth.onAuthStateChange(async (_event, session) => {
+    if (!session?.user || session.user.id !== currentUser?.id) {
+      await unsubscribeFromTaskChanges();
+      stopPeriodicSync();
+    }
     currentUser = session?.user || null;
     updateAuthStatus();
     if (currentUser) await syncTasksFromSupabase();
@@ -282,6 +288,8 @@ async function signInWithEmail() {
 async function signOut() {
   const client = getSupabase();
   if (!client) return;
+  await unsubscribeFromTaskChanges();
+  stopPeriodicSync();
   const { error } = await client.auth.signOut();
   if (error) throw error;
   currentUser = null;
@@ -370,7 +378,7 @@ function mergeTasks(localTasks, remoteTasks) {
   return Array.from(merged.values()).sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
 }
 
-async function syncTasksFromSupabase() {
+async function syncTasksFromSupabase({ replaceRemote = false, quiet = false } = {}) {
   const client = getSupabase();
   if (!client || !currentUser || isSyncing) return;
   isSyncing = true;
@@ -380,11 +388,15 @@ async function syncTasksFromSupabase() {
       .select("*")
       .order("updated_at", { ascending: false });
     if (error) throw error;
-    tasks = mergeTasks(tasks, (data || []).map(fromDbTask));
+    const remoteTasks = (data || []).map(fromDbTask);
+    const localOnly = replaceRemote ? tasks.filter((task) => !task.dbId) : tasks;
+    tasks = mergeTasks(localOnly, remoteTasks);
     saveTasks({ sync: false });
     render();
     await syncTasksToSupabase();
-    setRecordStatus("Synchronizacja Supabase gotowa.");
+    subscribeToTaskChanges();
+    startPeriodicSync();
+    if (!quiet) setRecordStatus("Synchronizacja Supabase gotowa.");
   } finally {
     isSyncing = false;
   }
@@ -394,16 +406,88 @@ async function syncTasksToSupabase() {
   const client = getSupabase();
   if (!client || !currentUser || isSyncing || tasks.length === 0) return;
   const payload = tasks.map(toDbTask);
-  const { error } = await client
+  const { data, error } = await client
     .from("tasks")
-    .upsert(payload, { onConflict: "user_id,client_id" });
+    .upsert(payload, { onConflict: "user_id,client_id" })
+    .select("id,client_id,updated_at");
   if (error) throw error;
+  if (data?.length) {
+    const dbRows = new Map(data.map((row) => [row.client_id, row]));
+    let changed = false;
+    tasks = tasks.map((task) => {
+      const row = dbRows.get(task.id);
+      if (!row || task.dbId === row.id) return task;
+      changed = true;
+      return { ...task, dbId: row.id };
+    });
+    if (changed) saveTasks({ sync: false });
+  }
 }
 
 async function deleteTaskFromSupabase(task) {
   const client = getSupabase();
   if (!client || !currentUser) return;
-  await client.from("tasks").delete().eq("client_id", task.id);
+  await client.from("tasks").delete().eq("client_id", task.id).eq("user_id", currentUser.id);
+}
+
+function subscribeToTaskChanges() {
+  const client = getSupabase();
+  if (!client || !currentUser || tasksChannel) return;
+
+  tasksChannel = client
+    .channel(`tasks:${currentUser.id}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "tasks", filter: `user_id=eq.${currentUser.id}` },
+      handleTaskChange
+    )
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") setRecordStatus("Sync live aktywny.");
+    });
+}
+
+async function unsubscribeFromTaskChanges() {
+  const client = getSupabase();
+  if (!client || !tasksChannel) return;
+  const channel = tasksChannel;
+  tasksChannel = null;
+  await client.removeChannel(channel);
+}
+
+function startPeriodicSync() {
+  if (syncPollTimer) return;
+  syncPollTimer = window.setInterval(() => {
+    syncTasksFromSupabase({ replaceRemote: true, quiet: true })
+      .catch((error) => setRecordStatus(`Sync Supabase: ${error.message}`));
+  }, 12000);
+}
+
+function stopPeriodicSync() {
+  if (!syncPollTimer) return;
+  window.clearInterval(syncPollTimer);
+  syncPollTimer = null;
+}
+
+function handleTaskChange(payload) {
+  if (!currentUser) return;
+
+  if (payload.eventType === "DELETE") {
+    const oldRow = payload.old || {};
+    tasks = tasks.filter((task) => task.dbId !== oldRow.id && task.id !== oldRow.client_id);
+    saveTasks({ sync: false });
+    render();
+    setRecordStatus("Usunięto zadanie z drugiego urządzenia.");
+    return;
+  }
+
+  const row = payload.new;
+  if (!row?.client_id) return;
+  const remoteTask = fromDbTask(row);
+  const index = tasks.findIndex((task) => task.id === remoteTask.id || task.dbId === remoteTask.dbId);
+  if (index >= 0) tasks[index] = mergeTasks([tasks[index]], [remoteTask])[0];
+  else tasks.unshift(remoteTask);
+  saveTasks({ sync: false });
+  render();
 }
 
 function render() {

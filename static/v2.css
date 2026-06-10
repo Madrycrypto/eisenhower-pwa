@@ -782,30 +782,32 @@ h2 {
 
 .focus-module .timer-card {
   width: 100%;
-  min-height: 76px;
+  min-height: 122px;
   border-radius: 12px;
-  padding: 6px;
+  padding: 12px;
+  position: relative;
 }
 
 .focus-module .timer-face {
   justify-self: center;
-  width: 52px;
-  height: 52px;
+  align-self: center;
+  width: 92px;
+  height: 92px;
 }
 
 .focus-module .timer-face strong {
-  inset: auto 0 8px;
-  font-size: 10px;
+  inset: auto 0 17px;
+  font-size: 16px;
 }
 
 .focus-module .tomato {
-  width: 40px;
-  height: 40px;
+  width: 70px;
+  height: 70px;
 }
 
 .focus-module .tomato span {
-  width: 24px;
-  height: 24px;
+  width: 42px;
+  height: 42px;
 }
 
 .focus-module .timer-actions button {
@@ -818,6 +820,17 @@ h2 {
 .focus-module .timer-actions svg {
   width: 13px;
   height: 13px;
+}
+
+.focus-module .timer-actions {
+  position: absolute;
+  inset: 8px 8px auto;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.focus-module .timer-actions button {
+  pointer-events: auto;
 }
 
 .focus-module .hero-copy {

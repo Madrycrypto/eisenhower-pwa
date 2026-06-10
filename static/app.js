@@ -1074,27 +1074,19 @@ document.querySelectorAll(".quadrant").forEach((quad) => {
   });
 });
 
-document.getElementById("taskForm").addEventListener("submit", async (event) => {
+document.getElementById("taskForm").addEventListener("submit", (event) => {
   event.preventDefault();
   const input = document.getElementById("taskInput");
   const title = input.value.trim();
   const zone = document.getElementById("zoneInput").value;
   if (!title) return;
 
-  if (looksLikeVoiceCommand(title)) {
-    await intakeText(title, zone);
-  } else {
-    tasks.unshift(createTask(title, zone));
-    saveTasks();
-    render();
-  }
-
+  tasks.unshift(createTask(title, zone));
+  saveTasks();
+  render();
+  setRecordStatus("Dodane ręcznie.");
   input.value = "";
 });
-
-function looksLikeVoiceCommand(text) {
-  return /zrób teraz|zrob teraz|zaplanuj|deleguj|usuń|usun|jutro|dzisiaj|o \d{1,2}|spotkanie|wizyta|call/i.test(text);
-}
 
 async function intakeText(text, fallbackZone = "do") {
   const config = loadConfig();

@@ -225,6 +225,34 @@
     </dialog>
   </main>
 
+  <script>
+    (() => {
+      const strip = document.getElementById("dateStrip");
+      const month = document.getElementById("calendarMonth");
+      if (!strip || strip.children.length) return;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const monthFormatter = new Intl.DateTimeFormat("pl-PL", { month: "long", year: "numeric" });
+      const weekdayFormatter = new Intl.DateTimeFormat("pl-PL", { weekday: "short" });
+      if (month) month.textContent = monthFormatter.format(today);
+
+      for (let index = 0; index < 7; index += 1) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + index);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `date-pill${index === 0 ? " selected" : ""}`;
+        button.dataset.date = date.toISOString();
+        button.innerHTML = `
+          <span class="weekday">${weekdayFormatter.format(date)}</span>
+          <span class="day">${date.getDate()}</span>
+          <span class="events"></span>
+        `;
+        strip.appendChild(button);
+      }
+    })();
+  </script>
   <script type="module" src="./app.js"></script>
 </body>
 </html>

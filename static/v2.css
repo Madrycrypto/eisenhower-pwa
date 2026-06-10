@@ -281,12 +281,15 @@ h1 {
   background: #fff;
   padding: 10px;
   display: grid;
+  grid-template-rows: auto auto auto;
   gap: 9px;
+  align-content: start;
   overflow: visible;
   box-shadow: 0 8px 18px rgba(78, 48, 32, 0.08);
 }
 
 .calendar-head {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -315,6 +318,8 @@ h1 {
 }
 
 .date-strip {
+  grid-column: 1 / -1;
+  min-height: 45px;
   display: grid;
   grid-template-columns: repeat(7, minmax(38px, 1fr));
   gap: 7px;
@@ -353,6 +358,7 @@ h1 {
 }
 
 .calendar-popover {
+  grid-column: 1 / -1;
   display: block;
   border: 2px solid rgba(126, 217, 209, 0.9);
   border-radius: 14px;

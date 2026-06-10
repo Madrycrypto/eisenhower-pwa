@@ -112,12 +112,7 @@ button {
     grid-column: 1 / -1;
   }
 
-  .hero-panel {
-    grid-column: 1 / -1;
-    height: 100%;
-  }
-
-  .calendar-widget {
+  .phone-canvas > .calendar-widget {
     grid-column: 1 / -1;
     height: 100%;
   }
@@ -700,7 +695,15 @@ h2 {
   background: #fff;
   padding: 16px;
   display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   gap: 14px;
+  align-items: stretch;
+}
+
+.insights-main {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
 }
 
 .insights-head {
@@ -708,16 +711,6 @@ h2 {
   align-items: start;
   justify-content: space-between;
   gap: 14px;
-}
-
-.insights-side {
-  display: flex;
-  align-items: start;
-  gap: 12px;
-}
-
-.insights-side .timer-card {
-  margin-top: -4px;
 }
 
 .insights-head span,
@@ -749,6 +742,31 @@ h2 {
 
 #riskBadge.high {
   background: linear-gradient(135deg, #ff765d, #f4b6ab);
+}
+
+.focus-module {
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff2df, #ffd7c7);
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.focus-module .focus-panel {
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.focus-module .timer-card {
+  width: 100%;
+  min-height: 142px;
+}
+
+.focus-module .timer-face {
+  justify-self: center;
 }
 
 .stats-grid {
@@ -961,17 +979,12 @@ dialog {
     grid-template-columns: 1fr;
   }
 
-  .insights-head,
-  .insights-side {
-    align-items: stretch;
+  .insights-panel {
+    grid-template-columns: 1fr;
   }
 
   .insights-head {
-    flex-direction: column;
-  }
-
-  .insights-side {
-    flex-wrap: wrap;
+    align-items: stretch;
   }
 
   .timer-card {

@@ -125,54 +125,56 @@
       </section>
 
       <section class="insights-panel" aria-label="Statystyki i wzorce">
-        <div class="insights-head">
-          <div>
-            <span>Behavior Insights</span>
-            <h2>Efekty i odraczanie</h2>
-          </div>
-          <div class="insights-side">
+        <div class="insights-main">
+          <div class="insights-head">
+            <div>
+              <span>Behavior Insights</span>
+              <h2>Efekty i odraczanie</h2>
+            </div>
             <strong id="riskBadge">OK</strong>
-            <div class="timer-card" aria-label="Pomodoro focus timer">
-              <button class="timer-face" id="timerToggle" type="button" aria-label="Start focus timer">
-                <div class="tomato" id="timerRing">
-                  <span></span>
-                </div>
-                <strong id="timerDisplay">25:00</strong>
-              </button>
-              <div class="timer-actions">
-                <button id="timerReset" type="button">Reset</button>
-                <button id="timerSoundToggle" type="button" aria-pressed="false">Dźwięk</button>
-              </div>
-              <small id="timerStats">0 min dziś</small>
+          </div>
+          <div class="stats-grid">
+            <div>
+              <span>Zrobione</span>
+              <strong id="statDone">0</strong>
+            </div>
+            <div>
+              <span>Odraczane</span>
+              <strong id="statPostponed">0</strong>
+            </div>
+            <div>
+              <span>Bez terminu</span>
+              <strong id="statNoDue">0</strong>
+            </div>
+            <div>
+              <span>W Zaplanuj</span>
+              <strong id="statPlanned">0</strong>
             </div>
           </div>
+          <ul id="insightList" class="insight-list"></ul>
         </div>
-        <section class="hero-panel focus-panel">
-          <div class="hero-copy">
-            <p class="kicker">Today Focus</p>
-            <strong id="focusTitle">Zrób teraz</strong>
-            <span id="focusMeta">Najważniejsze zadania dnia</span>
+        <aside class="focus-module" aria-label="Focus i Pomodoro">
+          <section class="hero-panel focus-panel">
+            <div class="hero-copy">
+              <p class="kicker">Today Focus</p>
+              <strong id="focusTitle">Zrób teraz</strong>
+              <span id="focusMeta">Najważniejsze zadania dnia</span>
+            </div>
+          </section>
+          <div class="timer-card" aria-label="Pomodoro focus timer">
+            <button class="timer-face" id="timerToggle" type="button" aria-label="Start focus timer">
+              <div class="tomato" id="timerRing">
+                <span></span>
+              </div>
+              <strong id="timerDisplay">25:00</strong>
+            </button>
+            <div class="timer-actions">
+              <button id="timerReset" type="button">Reset</button>
+              <button id="timerSoundToggle" type="button" aria-pressed="false">Dźwięk</button>
+            </div>
+            <small id="timerStats">0 min dziś</small>
           </div>
-        </section>
-        <div class="stats-grid">
-          <div>
-            <span>Zrobione</span>
-            <strong id="statDone">0</strong>
-          </div>
-          <div>
-            <span>Odraczane</span>
-            <strong id="statPostponed">0</strong>
-          </div>
-          <div>
-            <span>Bez terminu</span>
-            <strong id="statNoDue">0</strong>
-          </div>
-          <div>
-            <span>W Zaplanuj</span>
-            <strong id="statPlanned">0</strong>
-          </div>
-        </div>
-        <ul id="insightList" class="insight-list"></ul>
+        </aside>
       </section>
 
     </section>

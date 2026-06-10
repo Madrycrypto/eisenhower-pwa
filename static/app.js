@@ -524,7 +524,7 @@ function renderPomodoro() {
   const soundToggle = document.getElementById("timerSoundToggle");
   const focusTitle = document.getElementById("focusTitle");
   const focusMeta = document.getElementById("focusMeta");
-  if (!display || !toggle || !ring || !stats) return;
+  if (!display || !toggle || !ring) return;
 
   const minutes = Math.floor(pomodoroRemaining / 60);
   const seconds = pomodoroRemaining % 60;
@@ -541,10 +541,11 @@ function renderPomodoro() {
   toggle.setAttribute("aria-label", pomodoroRunning ? "Pauza focus timer" : "Start focus timer");
   toggle.title = pomodoroRunning ? "Pauza" : "Start";
   ring.style.setProperty("--timer-progress", `${Math.max(3, elapsedPercent)}%`);
-  stats.textContent = `${getPomodoroModeLabel()} · ${todayMinutes} min dziś`;
+  if (stats) stats.textContent = `${getPomodoroModeLabel()} · ${todayMinutes} min dziś`;
   if (soundToggle) {
     soundToggle.setAttribute("aria-pressed", String(tickSoundEnabled));
-    soundToggle.textContent = tickSoundEnabled ? "Tyk ON" : "Dźwięk";
+    soundToggle.setAttribute("aria-label", tickSoundEnabled ? "Wyłącz dźwięk" : "Włącz dźwięk");
+    soundToggle.title = tickSoundEnabled ? "Wyłącz dźwięk" : "Włącz dźwięk";
   }
   if (focusTitle) focusTitle.textContent = pomodoroMode === "focus" ? (focusTask?.title || "Zrób teraz") : getPomodoroModeLabel();
   if (focusMeta) {

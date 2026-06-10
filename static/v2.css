@@ -263,12 +263,25 @@ h1 {
 }
 
 .timer-actions button {
-  min-height: 24px;
-  padding: 0 8px;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.68);
   color: var(--ink);
-  font-size: 11px;
   font-weight: 900;
+}
+
+.timer-actions svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .timer-actions button[aria-pressed="true"] {
@@ -796,13 +809,15 @@ h2 {
 }
 
 .focus-module .timer-actions button {
-  min-height: 20px;
-  padding: 0 6px;
-  font-size: 9px;
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
 }
 
-.focus-module .timer-card small {
-  font-size: 9px;
+.focus-module .timer-actions svg {
+  width: 13px;
+  height: 13px;
 }
 
 .focus-module .hero-copy {

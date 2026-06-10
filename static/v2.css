@@ -113,12 +113,12 @@ button {
   }
 
   .hero-panel {
-    grid-column: 1;
+    grid-column: 1 / -1;
     height: 100%;
   }
 
   .calendar-widget {
-    grid-column: 2;
+    grid-column: 1 / -1;
     height: 100%;
   }
 }
@@ -164,6 +164,25 @@ h1 {
   grid-template-columns: 1fr;
   align-items: center;
   gap: 14px;
+}
+
+.focus-panel {
+  min-height: 0;
+  padding: 12px 14px;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.focus-panel .hero-copy {
+  gap: 3px;
+}
+
+.focus-panel .hero-copy strong {
+  font-size: clamp(20px, 3vw, 28px);
+}
+
+.focus-panel .hero-copy span {
+  font-size: 12px;
 }
 
 .hero-copy {

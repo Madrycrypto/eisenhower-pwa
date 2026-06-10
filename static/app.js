@@ -498,17 +498,22 @@ function render() {
     list.innerHTML = "";
   });
 
-  tasks.forEach((task) => {
+  const activeTasks = getActiveTasks();
+  activeTasks.forEach((task) => {
     const list = document.querySelector(`[data-list="${task.zone}"]`);
     if (list) list.appendChild(createCard(task));
   });
 
   document.querySelectorAll(".quadrant").forEach((quad) => {
-    const count = tasks.filter((task) => task.zone === quad.dataset.zone).length;
+    const count = activeTasks.filter((task) => task.zone === quad.dataset.zone).length;
     quad.querySelector(".count").textContent = count;
   });
 
   renderInsights();
+}
+
+function getActiveTasks() {
+  return tasks.filter((task) => task.status !== "zrobione");
 }
 
 function renderPomodoro() {
@@ -735,11 +740,13 @@ function createCard(task) {
   const done = document.createElement("button");
   done.type = "button";
   done.textContent = task.status === "zrobione" ? "Cofnij" : "Zrobione";
-  done.addEventListener("click", () => {
+  done.addEventListener("click", async () => {
     const isDone = task.status === "zrobione";
+    if (!isDone) await requestCalendarDelete(task).catch((error) => setRecordStatus(`Kalendarz: ${error.message}`));
     updateTask(task.id, {
       status: isDone ? "planowane" : "zrobione",
-      completedAt: isDone ? "" : new Date().toISOString()
+      completedAt: isDone ? "" : new Date().toISOString(),
+      calendarEventId: isDone ? task.calendarEventId : ""
     });
   });
 
@@ -768,6 +775,7 @@ function createCard(task) {
   remove.type = "button";
   remove.textContent = "Usuń";
   remove.addEventListener("click", async () => {
+    await requestCalendarDelete(task).catch((error) => setRecordStatus(`Kalendarz: ${error.message}`));
     await deleteTaskFromSupabase(task).catch((error) => setRecordStatus(`Supabase delete: ${error.message}`));
     tasks = tasks.filter((item) => item.id !== task.id);
     if (activeFocusTaskId === task.id) {
@@ -818,6 +826,42 @@ function updateTask(id, changes) {
   render();
 }
 
+async function requestCalendarDelete(task) {
+  if (!task?.calendarEventId && !task?.dueAt) return;
+  const config = loadConfig();
+  if (!config.n8nWebhookUrl) return;
+
+  const payload = {
+    action: "delete_calendar_event",
+    calendarEventId: task.calendarEventId || "",
+    task: {
+      id: task.id,
+      title: task.title,
+      dueAt: task.dueAt || "",
+      calendarEventId: task.calendarEventId || ""
+    },
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    now: new Date().toISOString(),
+    source: "pwa-task-complete"
+  };
+
+  try {
+    const response = await fetch(config.n8nWebhookUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error("n8n nie potwierdził usunięcia eventu.");
+  } catch {
+    await fetch(config.n8nWebhookUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "content-type": "text/plain" },
+      body: JSON.stringify(payload)
+    });
+  }
+}
+
 function formatDue(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -838,7 +882,7 @@ function renderDateStrip() {
   for (let index = 0; index < 7; index += 1) {
     const date = new Date(today);
     date.setDate(today.getDate() + index);
-    const count = tasks.filter((task) => isSameDay(task.dueAt, date)).length;
+    const count = getActiveTasks().filter((task) => isSameDay(task.dueAt, date)).length;
     const button = document.createElement("button");
     button.type = "button";
     button.className = `date-pill${isSameCalendarDate(selectedCalendarDate, date) ? " selected" : ""}`;
@@ -864,7 +908,7 @@ function renderCalendarPopover(date) {
   const popover = ensureCalendarPopover();
   if (!popover) return;
 
-  const dayTasks = tasks
+  const dayTasks = getActiveTasks()
     .filter((task) => isSameDay(task.dueAt, date))
     .sort((first, second) => new Date(first.dueAt).getTime() - new Date(second.dueAt).getTime());
   const title = date.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long" });

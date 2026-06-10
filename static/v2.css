@@ -158,10 +158,10 @@ h1 {
 .hero-panel {
   border-radius: 20px;
   background: linear-gradient(135deg, #fff2df, #ffd7c7);
-  min-height: 118px;
+  min-height: 96px;
   padding: 16px 18px;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr;
   align-items: center;
   gap: 14px;
 }
@@ -190,9 +190,9 @@ h1 {
 }
 
 .timer-card {
-  width: 128px;
-  min-height: 118px;
-  border-radius: 22px;
+  width: 124px;
+  min-height: 112px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.55);
   display: grid;
   place-items: center;
@@ -691,6 +691,16 @@ h2 {
   gap: 14px;
 }
 
+.insights-side {
+  display: flex;
+  align-items: start;
+  gap: 12px;
+}
+
+.insights-side .timer-card {
+  margin-top: -4px;
+}
+
 .insights-head span,
 .stats-grid span {
   color: var(--muted);
@@ -932,9 +942,22 @@ dialog {
     grid-template-columns: 1fr;
   }
 
+  .insights-head,
+  .insights-side {
+    align-items: stretch;
+  }
+
+  .insights-head {
+    flex-direction: column;
+  }
+
+  .insights-side {
+    flex-wrap: wrap;
+  }
+
   .timer-card {
     justify-self: center;
-    width: min(100%, 220px);
+    width: min(100%, 180px);
   }
 
   .quick-add {
